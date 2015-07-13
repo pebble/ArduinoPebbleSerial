@@ -6,7 +6,7 @@ This is an Arduino library for communicating with Pebble Time via the Smartstrap
 
 The following boards and pin configurations are currently supported. The two pins listed must be
 tied together and connected to the Smartstrap data pin.
-* Arduino UNO (ATmega328p) - Serial0 - pins 0 and 1
+* Arduino Uno (ATmega328p) - Serial0 - pins 0 and 1
 * Arduino Mega 2560 (ATmega2560) - Serial1 - pins 18 and 19
 * Xadow Main Board (ATmega32u4) - Serial1 - pins 0 and 1
 
