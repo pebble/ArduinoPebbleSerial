@@ -40,3 +40,7 @@ Returns true/false if we are currently connected to the watch.
 
 	void ArduinoPebbleSerial::notify(void);
 Sends a notification to the watch. Notifications can be used to tell the watch about an event.
+
+## Demos ##
+
+https://github.com/pebble/xadow-smartstrap-demo
