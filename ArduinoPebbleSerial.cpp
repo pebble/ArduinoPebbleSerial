@@ -3,8 +3,9 @@
  */
 
 #include "ArduinoPebbleSerial.h"
+#include "utility/board.h"
 extern "C" {
-#include <utility/PebbleSerial.h>
+#include "utility/PebbleSerial.h"
 };
 
 
@@ -13,21 +14,7 @@ extern "C" {
 #define sbi(sfr, bit) (sfr |= _BV(bit))
 
 
-// The board-specific variables are defined below
-#if defined(__AVR_ATmega32U4__)
-static HardwareSerial *s_serial = &Serial1;
-static const uint8_t s_tx_pin = 1;
-#elif defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__)
-static HardwareSerial *s_serial = &Serial;
-static const uint8_t s_tx_pin = 1;
-#elif defined(__AVR_ATmega2560__)
-static HardwareSerial *s_serial = &Serial1;
-static const uint8_t s_tx_pin = 18;
-#else
-#error "Board not supported!
-#endif
-
-
+static HardwareSerial *s_serial = &(BOARD_SERIAL);
 static bool s_is_hardware;
 static uint8_t *s_buffer;
 static size_t s_buffer_length;
@@ -35,32 +22,24 @@ static size_t s_buffer_length;
 static void prv_control_cb(PebbleControl cmd) {
   switch (cmd) {
   case PebbleControlEnableTX:
-    // enable transmitter
-    sbi(UCSR1B, TXEN1);
-    // disable receiver
-    cbi(UCSR1B, RXEN1);
+    BOARD_ENABLE_TX();
+    BOARD_DISABLE_RX();
     break;
   case PebbleControlDisableTX:
-    // disable transmitter
-    cbi(UCSR1B, TXEN1);
-    // set TX pin as input with pullup
-    pinMode(s_tx_pin, INPUT_PULLUP);
-    // enable receiver
-    sbi(UCSR1B, RXEN1);
+    BOARD_DISABLE_TX();
+    pinMode(BOARD_TX_PIN, INPUT_PULLUP);
+    BOARD_ENABLE_RX();
     break;
   case PebbleControlFlushTX:
-    // flush any buffered tx data
     s_serial->flush();
-    // wait for the data to be transmitted
-    while (!(UCSR1A & 0x60));
-    // small delay for the lines to settle down
+    while (!BOARD_TX_COMPLETE());
     delay(1);
     break;
   case PebbleControlSetParityEven:
-    sbi(UCSR1C, UPM11);
+    BOARD_PARITY_EVEN();
     break;
   case PebbleControlSetParityNone:
-    cbi(UCSR1C, UPM11);
+    BOARD_PARITY_NONE();
     break;
   default:
     break;
