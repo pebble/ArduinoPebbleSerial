@@ -4,7 +4,7 @@
 
 #include "ArduinoPebbleSerial.h"
 extern "C" {
-#include "PebbleSerial.h"
+#include <utility/PebbleSerial.h>
 };
 
 
