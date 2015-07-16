@@ -52,6 +52,7 @@ static bool s_can_respond;
 void pebble_init(PebbleCallbacks callbacks) {
   s_callbacks = callbacks;
   s_callbacks.control(PebbleControlSetParityNone);
+  s_callbacks.control(PebbleControlEnableTX);
   s_callbacks.control(PebbleControlDisableTX);
 }
 
@@ -198,7 +199,7 @@ bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read) {
       }
     } else {
       const size_t payload_length = s_frame.length - FRAME_PAYLOAD_OFFSET;
-      if (payload_length - 1 >= s_frame.read_length) {
+      if (payload_length > s_frame.read_length) {
         // no space in the receive buffer for this byte
         s_frame.should_drop = true;
       } else {

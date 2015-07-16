@@ -22,24 +22,20 @@ static size_t s_buffer_length;
 static void prv_control_cb(PebbleControl cmd) {
   switch (cmd) {
   case PebbleControlEnableTX:
-    BOARD_ENABLE_TX();
-    BOARD_DISABLE_RX();
+    board_set_tx_enabled(true);
     break;
   case PebbleControlDisableTX:
-    BOARD_DISABLE_TX();
-    pinMode(BOARD_TX_PIN, INPUT_PULLUP);
-    BOARD_ENABLE_RX();
+    board_set_tx_enabled(false);
     break;
   case PebbleControlFlushTX:
     s_serial->flush();
-    while (!BOARD_TX_COMPLETE());
     delay(1);
     break;
   case PebbleControlSetParityEven:
-    BOARD_PARITY_EVEN();
+    board_set_even_parity(true);
     break;
   case PebbleControlSetParityNone:
-    BOARD_PARITY_NONE();
+    board_set_even_parity(false);
     break;
   default:
     break;
