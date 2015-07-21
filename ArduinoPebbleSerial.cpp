@@ -8,14 +8,7 @@ extern "C" {
 #include "utility/PebbleSerial.h"
 };
 
-
-// Macros for setting and clearing a bit within a register
-#define cbi(sfr, bit) (sfr &= ~_BV(bit))
-#define sbi(sfr, bit) (sfr |= _BV(bit))
-
-
 static HardwareSerial *s_serial = &(BOARD_SERIAL);
-static bool s_is_hardware;
 static uint8_t *s_buffer;
 static size_t s_buffer_length;
 
@@ -49,13 +42,13 @@ static void prv_write_byte_cb(uint8_t data) {
 void ArduinoPebbleSerial::begin(uint8_t *buffer, size_t length) {
   s_buffer = buffer;
   s_buffer_length = length;
-  s_is_hardware = true;
 
   s_serial->begin(PEBBLE_DEFAULT_BAUDRATE);
 
-  PebbleCallbacks callbacks;
-  callbacks.write_byte = prv_write_byte_cb;
-  callbacks.control = prv_control_cb;
+  PebbleCallbacks callbacks = {
+    .write_byte = prv_write_byte_cb,
+    .control = prv_control_cb
+  };
   pebble_init(callbacks);
   pebble_prepare_for_read(s_buffer, s_buffer_length);
 }
