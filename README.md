@@ -41,6 +41,14 @@ Returns true/false if we are currently connected to the watch.
 	void ArduinoPebbleSerial::notify(void);
 Sends a notification to the watch. Notifications can be used to tell the watch about an event.
 
-## Demos ##
+## Examples ##
 
-https://github.com/pebble/xadow-smartstrap-demo
+There a few example Arduino projects and an example Pebble app provided with library in the examples
+folder.
+* examples/PebbleApp/ - A Pebble app to use with the TeensyDemo and XadowDemo examples
+* examples/TeensyDemo/ - A simple example sketch for the Teensy 2.0 board which will toggle the LED
+when data is received and send the uptime to the watch
+* examples/XadowDemo/ - A simple example sketch for the Xadow board which will toggle the LED when
+data is received and send the uptime to the watch
+* examples/XadowNES/ - An Arduino sketch for the Xadow board which reads the button input from an
+NES controller and sends it to the watch
