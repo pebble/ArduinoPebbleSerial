@@ -1,0 +1,16 @@
+{
+  "uuid": "019798b0-f1f7-4e43-b4c3-892391790f52",
+  "shortName": "Smartstrap Demo",
+  "longName": "Smartstrap Demo",
+  "companyName": "Pebble",
+  "versionCode": 1,
+  "versionLabel": "1.0",
+  "sdkVersion": "3",
+  "targetPlatforms": ["basalt"],
+  "watchapp": {
+    "watchface": false
+  },
+  "resources": {
+    "media": []
+  }
+}
