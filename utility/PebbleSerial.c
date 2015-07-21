@@ -230,6 +230,8 @@ void pebble_notify(void) {
   s_callbacks.control(PebbleControlEnableTX);
   s_callbacks.control(PebbleControlSetParityEven);
   s_callbacks.write_byte(0x00);
+  s_callbacks.write_byte(0x00);
+  s_callbacks.write_byte(0x00);
   // we must flush before changing the parity back
   s_callbacks.control(PebbleControlFlushTX);
   s_callbacks.control(PebbleControlDisableTX);
