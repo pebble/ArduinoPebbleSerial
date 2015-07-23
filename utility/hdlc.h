@@ -9,10 +9,9 @@ static const uint8_t HDLC_ESCAPE_MASK = 0x20;
 
 typedef struct {
   bool escape;
-  bool is_valid;
 } HdlcStreamingContext;
 
-void hdlc_streaming_decode_start(HdlcStreamingContext *);
-bool hdlc_streaming_decode(HdlcStreamingContext *, uint8_t *data);
-bool hdlc_streaming_decode_finish(HdlcStreamingContext *);
+void hdlc_streaming_decode_reset(HdlcStreamingContext *ctx);
+bool hdlc_streaming_decode(HdlcStreamingContext *ctx, uint8_t *data, bool *complete,
+                           bool *is_invalid);
 bool hdlc_encode(uint8_t *data);

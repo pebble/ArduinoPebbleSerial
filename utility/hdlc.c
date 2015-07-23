@@ -1,43 +1,40 @@
 #include "hdlc.h"
 
-
-void hdlc_streaming_decode_start(HdlcStreamingContext *ctx) {
+void hdlc_streaming_decode_reset(HdlcStreamingContext *ctx) {
   ctx->escape = false;
-  ctx->is_valid = true;
 }
 
-bool hdlc_streaming_decode(HdlcStreamingContext *ctx, uint8_t *data) {
-  if (!ctx->is_valid) {
-    // if this stream is invalid, no need to process any more
-    return false;
-  }
+bool hdlc_streaming_decode(HdlcStreamingContext *ctx, uint8_t *data, bool *should_store,
+                           bool *hdlc_error) {
+  bool is_complete = false;
+  *hdlc_error = false;
+  *should_store = false;
   if (*data == HDLC_FLAG) {
-    // there shouldn't be any flags in the data
-    ctx->is_valid = false;
-    return false;
+    if (ctx->escape) {
+      // extra escape character before flag
+      ctx->escape = false;
+      *hdlc_error = true;
+    }
+    // we've reached the end of the frame
+    is_complete = true;
   } else if (*data == HDLC_ESCAPE) {
     if (ctx->escape) {
       // invalid sequence
-      ctx->is_valid = false;
-      return false;
+      ctx->escape = false;
+      *hdlc_error = true;
     } else {
-      // next character must be escaped and this one should be ignored
+      // ignore this character and escape the next one
       ctx->escape = true;
-      return false;
     }
   } else {
-    // this is a valid character
     if (ctx->escape) {
-      // unescape the current character before processing it
       *data ^= HDLC_ESCAPE_MASK;
       ctx->escape = false;
     }
-    return true;
+    *should_store = true;
   }
-}
 
-bool hdlc_streaming_decode_finish(HdlcStreamingContext *ctx) {
-  return ctx->is_valid && !ctx->escape;
+  return is_complete;
 }
 
 bool hdlc_encode(uint8_t *data) {

@@ -12,7 +12,7 @@ static HardwareSerial *s_serial = &(BOARD_SERIAL);
 static uint8_t *s_buffer;
 static size_t s_buffer_length;
 
-static void prv_control_cb(PebbleControl cmd) {
+static void prv_control_cb(PebbleControl cmd, uint32_t arg) {
   switch (cmd) {
   case PebbleControlEnableTX:
     board_set_tx_enabled(true);
@@ -22,13 +22,15 @@ static void prv_control_cb(PebbleControl cmd) {
     break;
   case PebbleControlFlushTX:
     s_serial->flush();
-    delay(1);
     break;
   case PebbleControlSetParityEven:
     board_set_even_parity(true);
     break;
   case PebbleControlSetParityNone:
     board_set_even_parity(false);
+    break;
+  case PebbleControlSetBaudRate:
+    s_serial->begin(arg);
     break;
   default:
     break;
@@ -42,8 +44,6 @@ static void prv_write_byte_cb(uint8_t data) {
 void ArduinoPebbleSerial::begin(uint8_t *buffer, size_t length) {
   s_buffer = buffer;
   s_buffer_length = length;
-
-  s_serial->begin(PEBBLE_DEFAULT_BAUDRATE);
 
   PebbleCallbacks callbacks = {
     .write_byte = prv_write_byte_cb,

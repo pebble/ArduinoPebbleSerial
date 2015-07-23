@@ -5,8 +5,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define PEBBLE_DEFAULT_BAUDRATE 9600
-#define PEBBLE_PROTOCOL_VERSION 1
 #define PEBBLE_MAX_PAYLOAD      80
 
 typedef enum {
@@ -14,11 +12,12 @@ typedef enum {
   PebbleControlDisableTX,
   PebbleControlFlushTX,
   PebbleControlSetParityEven,
-  PebbleControlSetParityNone
+  PebbleControlSetParityNone,
+  PebbleControlSetBaudRate
 } PebbleControl;
 
 typedef void (*PebbleWriteByteCallback)(uint8_t data);
-typedef void (*PebbleControlCallback)(PebbleControl cmd);
+typedef void (*PebbleControlCallback)(PebbleControl cmd, uint32_t arg);
 
 typedef struct {
   PebbleWriteByteCallback write_byte;
