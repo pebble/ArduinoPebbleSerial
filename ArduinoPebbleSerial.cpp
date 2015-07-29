@@ -18,10 +18,8 @@ static void prv_control_cb(PebbleControl cmd, uint32_t arg) {
     board_set_tx_enabled(true);
     break;
   case PebbleControlDisableTX:
-    board_set_tx_enabled(false);
-    break;
-  case PebbleControlFlushTX:
     s_serial->flush();
+    board_set_tx_enabled(false);
     break;
   case PebbleControlSetParityEven:
     board_set_even_parity(true);
@@ -31,6 +29,8 @@ static void prv_control_cb(PebbleControl cmd, uint32_t arg) {
     break;
   case PebbleControlSetBaudRate:
     s_serial->begin(arg);
+    Serial.print("Setting baud rate to ");
+    Serial.println(arg, DEC);
     break;
   default:
     break;
@@ -49,14 +49,14 @@ void ArduinoPebbleSerial::begin(uint8_t *buffer, size_t length) {
     .write_byte = prv_write_byte_cb,
     .control = prv_control_cb
   };
-  pebble_init(callbacks);
+  pebble_init(callbacks, PebbleBaud250000);
   pebble_prepare_for_read(s_buffer, s_buffer_length);
 }
 
 bool ArduinoPebbleSerial::feed(size_t *length, bool *is_read) {
   while (s_serial->available()) {
     uint8_t data = (uint8_t)s_serial->read();
-    if (pebble_handle_byte(data, length, is_read)) {
+    if (pebble_handle_byte(data, length, is_read, millis())) {
       // we have a full frame
       pebble_prepare_for_read(s_buffer, s_buffer_length);
       return true;

@@ -28,14 +28,13 @@ static void prv_read_done(bool success, uint32_t length) {
   }
 }
 
-static void prv_send_request(void *context) {
+static void prv_send_request(void) {
   const char *req = "REQUEST";
-  SmartstrapResult result = smartstrap_send((uint8_t *)req, strlen(req), s_buffer, MAX_READ_SIZE,
-                                            TIMEOUT_MS);
+  smartstrap_send((uint8_t *)req, strlen(req), s_buffer, MAX_READ_SIZE, TIMEOUT_MS);
 }
 
 static void prv_notify_callback(void) {
-  app_timer_register(100, prv_send_request, NULL);
+  prv_send_request();
 }
 
 static void prv_connection_status_changed(bool is_connected) {

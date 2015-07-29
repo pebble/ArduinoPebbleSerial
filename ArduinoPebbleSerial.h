@@ -13,6 +13,8 @@ public:
   static bool write(const uint8_t *payload, size_t length);
   static void notify(void);
   static bool is_connected(void);
+private:
+  static unsigned long last_frame;
 };
 
 #endif //__ARDUINO_PEBBLE_SERIAL_H__

@@ -11,7 +11,6 @@
 #define UNLIKELY(x) (__builtin_expect(!!(x), 0))
 
 #define PROTOCOL_VERSION              1
-#define DEFAULT_BAUDRATE              9600
 
 #define FRAME_MIN_LENGTH              8
 #define FRAME_VERSION_OFFSET          0
@@ -73,17 +72,34 @@ typedef struct {
   HdlcStreamingContext hdlc_ctx;
 } PebbleFrameInfo;
 
+static uint32_t s_last_status_time = 0;
 static PebbleFrameInfo s_frame;
 static PebbleCallbacks s_callbacks;
 static bool s_connected;
 static bool s_can_respond;
+static PebbleBaud s_current_baud = PebbleBaudInvalid;
+static PebbleBaud s_target_baud = PebbleBaudInvalid;
+static const uint32_t BAUDS[] = { 9600, 14400, 19200, 28800, 38400, 57600, 67500, 115200, 125000,
+                                  230400, 250000, 460800 };
+_Static_assert((sizeof(BAUDS) / sizeof(BAUDS[0])) == PebbleBaudInvalid,
+               "bauds table doesn't match up with PebbleBaud enum");
 
-void pebble_init(PebbleCallbacks callbacks) {
-  s_callbacks = callbacks;
-  s_callbacks.control(PebbleControlSetBaudRate, DEFAULT_BAUDRATE);
+
+void prv_set_baud(PebbleBaud baud) {
+  if (baud == s_current_baud) {
+    return;
+  }
+  s_current_baud = baud;
+  s_callbacks.control(PebbleControlSetBaudRate, BAUDS[baud]);
   s_callbacks.control(PebbleControlSetParityNone, 0);
   s_callbacks.control(PebbleControlEnableTX, 0);
   s_callbacks.control(PebbleControlDisableTX, 0);
+}
+
+void pebble_init(PebbleCallbacks callbacks, PebbleBaud baud) {
+  s_callbacks = callbacks;
+  s_target_baud = baud;
+  prv_set_baud(PebbleBaud9600);
 }
 
 void pebble_prepare_for_read(uint8_t *buffer, size_t length) {
@@ -99,14 +115,15 @@ static void prv_send_flag(void) {
 }
 
 static void prv_send_byte(uint8_t data, uint8_t *parity) {
-  crc8_calculate_bytes_streaming(&data, sizeof(data), parity);
+  crc8_calculate_byte_streaming(data, parity);
   if (hdlc_encode(&data)) {
     s_callbacks.write_byte(HDLC_ESCAPE);
   }
   s_callbacks.write_byte(data);
 }
 
-static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data, size_t length) {
+static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data, size_t length,
+                               bool is_notify) {
   uint8_t parity = 0;
 
   // enable tx
@@ -119,7 +136,11 @@ static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data, 
   prv_send_byte(PROTOCOL_VERSION, &parity);
 
   // send header flags
-  prv_send_byte(0, &parity);
+  if (is_notify) {
+    prv_send_byte(0x04, &parity);
+  } else {
+    prv_send_byte(0, &parity);
+  }
   prv_send_byte(0, &parity);
   prv_send_byte(0, &parity);
   prv_send_byte(0, &parity);
@@ -141,33 +162,28 @@ static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data, 
   prv_send_flag();
 
   // flush and disable tx
-  s_callbacks.control(PebbleControlFlushTX, 0);
   s_callbacks.control(PebbleControlDisableTX, 0);
 }
 
-static void prv_handle_link_control(uint8_t *buffer) {
+static void prv_handle_link_control(uint8_t *buffer, uint32_t time) {
   // we will re-use the buffer for the response
-  static bool did_change_baud = false;
   LinkControlType type = buffer[0];
   if (type == LinkControlTypeStatus) {
-    if (did_change_baud) {
-      buffer[1] = LinkControlStatusOk;
-    } else {
+    s_last_status_time = time;
+    if (s_current_baud != s_target_baud) {
       buffer[1] = LinkControlStatusBaudRate;
+    } else {
+      buffer[1] = LinkControlStatusOk;
+      s_connected = true;
     }
-    prv_write_internal(SmartstrapProfileLinkControl, buffer, 2);
-    s_connected = true;
+    prv_write_internal(SmartstrapProfileLinkControl, buffer, 2, false);
   } else if (type == LinkControlTypeProfiles) {
     buffer[1] = SmartstrapProfileRawData;
-    prv_write_internal(SmartstrapProfileLinkControl, buffer, 2);
+    prv_write_internal(SmartstrapProfileLinkControl, buffer, 2, false);
   } else if (type == LinkControlTypeBaud) {
-    buffer[1] = 0x00;
-    prv_write_internal(SmartstrapProfileLinkControl, buffer, 2);
-    s_callbacks.control(PebbleControlSetBaudRate, 9600);
-    s_callbacks.control(PebbleControlSetParityNone, 0);
-    s_callbacks.control(PebbleControlEnableTX, 0);
-    s_callbacks.control(PebbleControlDisableTX, 0);
-    did_change_baud = true;
+    buffer[1] = 0x0A;
+    prv_write_internal(SmartstrapProfileLinkControl, buffer, 2, false);
+    prv_set_baud(s_target_baud);
   }
 }
 
@@ -206,7 +222,7 @@ static void prv_store_byte(const uint8_t data) {
 
   // increment the length run the CRC calculation
   s_frame.length++;
-  crc8_calculate_bytes_streaming(&data, sizeof(data), &s_frame.checksum);
+  crc8_calculate_byte_streaming(data, &s_frame.checksum);
 }
 
 static void prv_frame_validate(void) {
@@ -226,7 +242,7 @@ static void prv_frame_validate(void) {
   }
 }
 
-bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read) {
+bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read, uint32_t time) {
   if (!s_frame.read_ready || s_frame.should_drop) {
     // we shouldn't be reading new data
     return false;
@@ -254,16 +270,27 @@ bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read) {
     } else {
       if (s_frame.header.profile == SmartstrapProfileLinkControl) {
         // handle this link control frame
-        prv_handle_link_control(s_frame.payload);
+        prv_handle_link_control(s_frame.payload, time);
         // prepare for the next frame
         pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
       } else {
         s_frame.read_ready = false;
         *length = s_frame.length - FRAME_MIN_LENGTH;
         *is_read = FLAGS_GET(s_frame.header.flags, FLAGS_IS_READ_MASK, FLAGS_IS_READ_OFFSET);
+        s_can_respond = true;
         return true;
       }
     }
+  }
+
+  if (time < s_last_status_time) {
+    // wrapped around
+    s_last_status_time = time;
+  } else if (time - s_last_status_time > 10000) {
+    // haven't received a valid status frame in over 10 seconds so reset the baudrate
+    prv_set_baud(PebbleBaud9600);
+    s_last_status_time = time;
+    s_connected = false;
   }
 
   return false;
@@ -273,7 +300,7 @@ bool pebble_write(const uint8_t *data, size_t length) {
   if (!s_can_respond) {
     return false;
   }
-  prv_write_internal(SmartstrapProfileRawData, data, length);
+  prv_write_internal(SmartstrapProfileRawData, data, length, false);
   s_can_respond = false;
   return true;
 }
@@ -285,9 +312,9 @@ void pebble_notify(void) {
   s_callbacks.write_byte(0x00);
   s_callbacks.write_byte(0x00);
   // we must flush before changing the parity back
-  s_callbacks.control(PebbleControlFlushTX, 0);
   s_callbacks.control(PebbleControlDisableTX, 0);
   s_callbacks.control(PebbleControlSetParityNone, 0);
+  prv_write_internal(SmartstrapProfileRawData, NULL, 0, true);
 }
 
 bool pebble_is_connected(void) {

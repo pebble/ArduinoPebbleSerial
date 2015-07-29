@@ -1,6 +1,6 @@
 #include "crc.h"
 
-void crc8_calculate_bytes_streaming(const uint8_t *data, unsigned int data_len, uint8_t *crc) {
+void crc8_calculate_byte_streaming(const uint8_t data, uint8_t *crc) {
   // Optimal polynomial chosen based on
   // http://users.ece.cmu.edu/~koopman/roses/dsn04/koopman04_crc_poly_embedded.pdf
   // Note that this is different than the standard CRC-8 polynomial, because the
@@ -12,14 +12,12 @@ void crc8_calculate_bytes_streaming(const uint8_t *data, unsigned int data_len, 
         181, 154 };
 
   int i;
-  uint16_t temp_crc = *crc;
-  for (i = data_len * 2; i > 0; i--) {
-    uint8_t nibble = data[(i - 1)/ 2];
+  for (i = 2; i > 0; i--) {
+    uint8_t nibble = data;
     if (i % 2 == 0) {
       nibble >>= 4;
     }
-    int index = nibble ^ (temp_crc >> 4);
-    temp_crc = lookup_table[index & 0xf] ^ (temp_crc << 4);
+    int index = nibble ^ (*crc >> 4);
+    *crc = lookup_table[index & 0xf] ^ (*crc << 4);
   }
-  *crc = (uint8_t)temp_crc;
 }
