@@ -19,7 +19,7 @@ static void prv_update_text(void) {
 static void prv_read_done(bool success, uint32_t length) {
   if (success) {
     s_buffer[length] = '\0';
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Read %d bytes: %s", (int)length, s_buffer);
+    //APP_LOG(APP_LOG_LEVEL_DEBUG, "Read %d bytes: %s", (int)length, s_buffer);
     if (length == 0) {
       text_layer_set_text(s_rfid_layer, "-");
     } else {

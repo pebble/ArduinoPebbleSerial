@@ -42,15 +42,18 @@ void loop() {
     }
   }
 
-  if (connected_time) {
+  if (ArduinoPebbleSerial::is_connected()) {
+    if (!connected_time) {
+      connected_time = millis();
+    }
     // notify the pebble every 500ms
     static uint32_t last_check = 0;
-    if (millis() - last_check  > 1000) {
+    if (millis() - last_check  > 100) {
       Serial.println("NOTIFY");
       ArduinoPebbleSerial::notify();
       last_check = millis();
     }
-  } else if (ArduinoPebbleSerial::is_connected()) {
-    connected_time = millis();
+  } else {
+    connected_time = 0;
   }
 }
