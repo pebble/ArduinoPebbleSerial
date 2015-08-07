@@ -35,9 +35,9 @@ void loop() {
     Serial.println("READ");
     if (is_read) {
       // send a response to the Pebble - reuse the same buffer for the response
-      memset(pebble_buffer, 0, RECV_BUFFER_SIZE);
-      snprintf((char *)pebble_buffer, RECV_BUFFER_SIZE, "%lu", (millis()-connected_time)/1000);
-      ArduinoPebbleSerial::write(pebble_buffer, strlen((char *)pebble_buffer));
+      uint32_t current_time = millis();
+      memcpy(pebble_buffer, &current_time, 4);
+      ArduinoPebbleSerial::write(pebble_buffer, 4);
       Serial.println("WRITE");
     }
   }

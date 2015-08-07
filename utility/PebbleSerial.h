@@ -22,7 +22,7 @@ typedef enum {
   PebbleBaud28800,
   PebbleBaud38400,
   PebbleBaud57600,
-  PebbleBaud67500,
+  PebbleBaud62500,
   PebbleBaud115200,
   PebbleBaud125000,
   PebbleBaud230400,
@@ -48,5 +48,6 @@ bool pebble_write(const uint8_t *payload, size_t length);
 void pebble_notify(void);
 bool pebble_is_connected(void);
 
-
+extern void debug_byte(uint8_t data);
+extern void debug_byte_hex(uint8_t data);
 #endif // __PEBBLE_SERIAL_H__

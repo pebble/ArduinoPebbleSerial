@@ -36,6 +36,7 @@ typedef enum {
   SmartstrapProfileInvalid = 0x00,
   SmartstrapProfileLinkControl = 0x01,
   SmartstrapProfileRawData = 0x02,
+  SmartstrapProfileGenericService = 0x03,
   NumSmartstrapProfiles
 } SmartstrapProfile;
 
@@ -71,6 +72,15 @@ typedef struct {
   bool is_read;
   HdlcStreamingContext hdlc_ctx;
 } PebbleFrameInfo;
+
+typedef struct __attribute__((packed)) {
+  uint8_t version;
+  uint16_t service_id;
+  uint16_t attribute_id;
+  uint8_t error;
+  uint16_t length;
+  uint8_t data[];
+} GenericServicePayload;
 
 static uint32_t s_last_status_time = 0;
 static PebbleFrameInfo s_frame;
@@ -167,24 +177,55 @@ static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data, 
 
 static void prv_handle_link_control(uint8_t *buffer, uint32_t time) {
   // we will re-use the buffer for the response
-  LinkControlType type = buffer[0];
+  LinkControlType type = buffer[1];
   if (type == LinkControlTypeStatus) {
     s_last_status_time = time;
     if (s_current_baud != s_target_baud) {
-      buffer[1] = LinkControlStatusBaudRate;
+      buffer[2] = LinkControlStatusBaudRate;
     } else {
-      buffer[1] = LinkControlStatusOk;
+      buffer[2] = LinkControlStatusOk;
       s_connected = true;
     }
-    prv_write_internal(SmartstrapProfileLinkControl, buffer, 2, false);
+    prv_write_internal(SmartstrapProfileLinkControl, buffer, 3, false);
   } else if (type == LinkControlTypeProfiles) {
-    buffer[1] = SmartstrapProfileRawData;
-    prv_write_internal(SmartstrapProfileLinkControl, buffer, 2, false);
+    buffer[2] = SmartstrapProfileRawData;
+    buffer[3] = SmartstrapProfileGenericService;
+    prv_write_internal(SmartstrapProfileLinkControl, buffer, 4, false);
   } else if (type == LinkControlTypeBaud) {
-    buffer[1] = 0x0A;
-    prv_write_internal(SmartstrapProfileLinkControl, buffer, 2, false);
+    buffer[2] = 0x0A;
+    prv_write_internal(SmartstrapProfileLinkControl, buffer, 3, false);
     prv_set_baud(s_target_baud);
   }
+}
+
+static uint32_t s_attr_data = 99999;
+static void prv_handle_generic_service(uint8_t *buffer) {
+  GenericServicePayload *data = (GenericServicePayload *)buffer;
+  if ((data->version != 1) || (data->error != 0)) {
+    return;
+  }
+  if ((data->service_id == 0x0001) && (data->attribute_id == 0x0001)) {
+    data->length = 2;
+    uint16_t service_id = 0x1001;
+    memcpy(data->data, &service_id, 2);
+  } else if ((data->service_id == 0x0001) && (data->attribute_id == 0x0002)) {
+    uint16_t info[2] = {0x1001, 0x1001};
+    data->length = sizeof(info);
+    memcpy(data->data, &info, data->length);
+  } else if ((data->service_id == 0x1001) && (data->attribute_id == 0x1001)) {
+    if (data->length == 4) {
+      // it was a write
+      memcpy(&s_attr_data, data->data, data->length);
+      data->length = 0;
+    } else {
+      data->length = 4;
+      memcpy(data->data, &s_attr_data, data->length);
+    }
+  } else {
+    return;
+  }
+  prv_write_internal(SmartstrapProfileGenericService, buffer,
+                     sizeof(GenericServicePayload) + data->length, false);
 }
 
 static void prv_store_byte(const uint8_t data) {
@@ -267,19 +308,22 @@ bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read, uint32_t ti
     if (s_frame.should_drop) {
       // reset the frame
       pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
+    } else if (s_frame.header.profile == SmartstrapProfileLinkControl) {
+      // handle this link control frame
+      prv_handle_link_control(s_frame.payload, time);
+      // prepare for the next frame
+      pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
+    } else if (s_frame.header.profile == SmartstrapProfileGenericService) {
+      // handle this generic service frame
+      prv_handle_generic_service(s_frame.payload);
+      // prepare for the next frame
+      pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
     } else {
-      if (s_frame.header.profile == SmartstrapProfileLinkControl) {
-        // handle this link control frame
-        prv_handle_link_control(s_frame.payload, time);
-        // prepare for the next frame
-        pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
-      } else {
-        s_frame.read_ready = false;
-        *length = s_frame.length - FRAME_MIN_LENGTH;
-        *is_read = FLAGS_GET(s_frame.header.flags, FLAGS_IS_READ_MASK, FLAGS_IS_READ_OFFSET);
-        s_can_respond = true;
-        return true;
-      }
+      s_frame.read_ready = false;
+      *length = s_frame.length - FRAME_MIN_LENGTH;
+      *is_read = FLAGS_GET(s_frame.header.flags, FLAGS_IS_READ_MASK, FLAGS_IS_READ_OFFSET);
+      s_can_respond = true;
+      return true;
     }
   }
 
@@ -314,7 +358,7 @@ void pebble_notify(void) {
   // we must flush before changing the parity back
   s_callbacks.control(PebbleControlDisableTX, 0);
   s_callbacks.control(PebbleControlSetParityNone, 0);
-  prv_write_internal(SmartstrapProfileRawData, NULL, 0, true);
+  prv_write_internal(SmartstrapProfileGenericService, NULL, 0, true);
 }
 
 bool pebble_is_connected(void) {
