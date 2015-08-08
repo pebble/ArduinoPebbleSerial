@@ -2,7 +2,9 @@
 #include <ArduinoPebbleSerial.h>
 #include <Wire.h>
 
-#define RECV_BUFFER_SIZE 200
+#define PEBBLE_PIN        1
+STATIC_ASSERT_VALID_ONE_WIRE_SOFT_SERIAL_PIN(PEBBLE_PIN);
+#define RECV_BUFFER_SIZE  200
 static uint8_t pebble_buffer[RECV_BUFFER_SIZE];
 static uint32_t connected_time = 0;
 
@@ -13,7 +15,7 @@ void setup() {
   digitalWrite(PIN_D6, LOW);
 
   // Setup the Pebble smartstrap connection
-  ArduinoPebbleSerial::begin(pebble_buffer, RECV_BUFFER_SIZE);
+  ArduinoPebbleSerial::begin_software(PEBBLE_PIN, pebble_buffer, RECV_BUFFER_SIZE);
 }
 
 void loop() {
@@ -24,6 +26,7 @@ void loop() {
     Serial.println(millis(), DEC);
     last_print = millis();
   }
+
   // Let the ArduinoPebbleSerial code do its processing
   size_t length;
   bool is_read;
@@ -48,7 +51,7 @@ void loop() {
     }
     // notify the pebble every 500ms
     static uint32_t last_check = 0;
-    if (millis() - last_check  > 100) {
+    if (millis() - last_check  > 250) {
       Serial.println("NOTIFY");
       ArduinoPebbleSerial::notify();
       last_check = millis();
