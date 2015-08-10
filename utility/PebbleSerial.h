@@ -8,11 +8,10 @@
 #define PEBBLE_MAX_PAYLOAD      80
 
 typedef enum {
-  PebbleControlEnableTX,
-  PebbleControlDisableTX,
-  PebbleControlSetParityEven,
-  PebbleControlSetParityNone,
-  PebbleControlSetBaudRate
+  PebbleControlSetBaudRate,
+  PebbleControlSetTxEnabled,
+  PebbleControlWriteByte,
+  PebbleControlWriteBreak
 } PebbleControl;
 
 typedef enum {
@@ -33,12 +32,13 @@ typedef enum {
 } PebbleBaud;
 
 
-typedef void (*PebbleWriteByteCallback)(uint8_t data);
 typedef void (*PebbleControlCallback)(PebbleControl cmd, uint32_t arg);
+typedef bool (*PebbleHandleAttributeCallback)(uint16_t service_id, uint16_t attribute_id,
+                                              uint8_t *buffer, uint16_t *length);
 
 typedef struct {
-  PebbleWriteByteCallback write_byte;
   PebbleControlCallback control;
+  PebbleHandleAttributeCallback attribute;
 } PebbleCallbacks;
 
 void pebble_init(PebbleCallbacks callbacks, PebbleBaud baud);
@@ -46,8 +46,7 @@ void pebble_prepare_for_read(uint8_t *buffer, size_t length);
 bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read, uint32_t time_ms);
 bool pebble_write(const uint8_t *payload, size_t length);
 void pebble_notify(void);
+void pebble_notify_attribute(uint16_t service_id, uint16_t attribute_id);
 bool pebble_is_connected(void);
 
-extern void debug_byte(uint8_t data);
-extern void debug_byte_hex(uint8_t data);
 #endif // __PEBBLE_SERIAL_H__

@@ -14,7 +14,7 @@ void setup() {
   pinMode(PIN_D6, OUTPUT);
   digitalWrite(PIN_D6, LOW);
 
-  // Setup the Pebble smartstrap connection
+  // Setup the Pebble smartstrap connection using one wire software serial
   ArduinoPebbleSerial::begin_software(PEBBLE_PIN, pebble_buffer, RECV_BUFFER_SIZE);
 }
 
@@ -49,11 +49,11 @@ void loop() {
     if (!connected_time) {
       connected_time = millis();
     }
-    // notify the pebble every 500ms
+    // notify the pebble every 250ms
     static uint32_t last_check = 0;
     if (millis() - last_check  > 250) {
       Serial.println("NOTIFY");
-      ArduinoPebbleSerial::notify();
+      ArduinoPebbleSerial::notify(0x1001, 0x1001);
       last_check = millis();
     }
   } else {

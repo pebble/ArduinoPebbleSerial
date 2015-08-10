@@ -14,31 +14,6 @@ static size_t s_buffer_length;
 
 static void prv_control_cb(PebbleControl cmd, uint32_t arg) {
   switch (cmd) {
-  case PebbleControlEnableTX:
-    if (s_is_hardware) {
-      board_set_tx_enabled(true);
-    }
-    break;
-  case PebbleControlDisableTX:
-    if (s_is_hardware) {
-      BOARD_SERIAL.flush();
-      board_set_tx_enabled(false);
-    }
-    break;
-  case PebbleControlSetParityEven:
-    if (s_is_hardware) {
-      board_set_even_parity(true);
-    } else {
-      OneWireSoftSerial::enable_break(true);
-    }
-    break;
-  case PebbleControlSetParityNone:
-    if (s_is_hardware) {
-      board_set_even_parity(false);
-    } else {
-      OneWireSoftSerial::enable_break(false);
-    }
-    break;
   case PebbleControlSetBaudRate:
     if (s_is_hardware) {
       if (arg == 57600) {
@@ -53,17 +28,59 @@ static void prv_control_cb(PebbleControl cmd, uint32_t arg) {
     Serial.print("Setting baud rate to ");
     Serial.println(arg, DEC);
     break;
+  case PebbleControlSetTxEnabled:
+    if (s_is_hardware) {
+      if (!arg) {
+        BOARD_SERIAL.flush();
+      }
+      board_set_tx_enabled(arg);
+    }
+    break;
+  case PebbleControlWriteByte:
+    if (s_is_hardware) {
+      BOARD_SERIAL.write((uint8_t)arg);
+    } else {
+      OneWireSoftSerial::write((uint8_t)arg);
+    }
+    break;
+  case PebbleControlWriteBreak:
+    if (s_is_hardware) {
+      board_set_even_parity(true);
+      BOARD_SERIAL.write((uint8_t)0);
+      // need to flush before changing parity
+      BOARD_SERIAL.flush();
+      board_set_even_parity(false);
+    } else {
+      OneWireSoftSerial::write(0, true /* is_break */);
+    }
+    break;
   default:
     break;
   }
 }
 
-static void prv_write_byte_cb(uint8_t data) {
-  if (s_is_hardware) {
-    BOARD_SERIAL.write(data);
-  } else {
-    OneWireSoftSerial::write(data);
+static bool prv_handle_attribute(uint16_t service_id, uint16_t attribute_id, uint8_t *buffer,
+                                 uint16_t *length) {
+  if ((service_id == 0x0001) && (attribute_id == 0x0001)) {
+    // service discovery
+    uint16_t service_id = 0x1001;
+    memcpy(buffer, &service_id, sizeof(service_id));
+    *length = sizeof(service_id);
+    return true;
+  } else if ((service_id == 0x1001) && (attribute_id == 0x1001)) {
+    static uint32_t s_test_attr_data = 9999;
+    if (*length == 0) {
+      // this was a read
+      memcpy(buffer, &s_test_attr_data, sizeof(s_test_attr_data));
+      *length = sizeof(s_test_attr_data);
+    } else {
+      // this was a write
+      memcpy(&s_test_attr_data, buffer, sizeof(s_test_attr_data));
+      *length = 0;
+    }
+    return true;
   }
+  return false;
 }
 
 static void prv_begin(uint8_t *buffer, size_t length) {
@@ -71,8 +88,8 @@ static void prv_begin(uint8_t *buffer, size_t length) {
   s_buffer_length = length;
 
   PebbleCallbacks callbacks = {
-    .write_byte = prv_write_byte_cb,
-    .control = prv_control_cb
+    .control = prv_control_cb,
+    .attribute = prv_handle_attribute
   };
 
   pebble_init(callbacks, PebbleBaud57600);
@@ -97,15 +114,17 @@ static int prv_available_bytes(void) {
   }
 }
 
+static uint8_t prv_read_byte(void) {
+  if (s_is_hardware) {
+    return (uint8_t)BOARD_SERIAL.read();
+  } else {
+    return (uint8_t)OneWireSoftSerial::read();
+  }
+}
+
 bool ArduinoPebbleSerial::feed(size_t *length, bool *is_read) {
   while (prv_available_bytes()) {
-    uint8_t data;
-    if (s_is_hardware) {
-      data = (uint8_t)BOARD_SERIAL.read();
-    } else {
-      data = (uint8_t)OneWireSoftSerial::read();
-    }
-    if (pebble_handle_byte(data, length, is_read, millis())) {
+    if (pebble_handle_byte(prv_read_byte(), length, is_read, millis())) {
       // we have a full frame
       pebble_prepare_for_read(s_buffer, s_buffer_length);
       return true;
@@ -122,16 +141,10 @@ void ArduinoPebbleSerial::notify(void) {
   pebble_notify();
 }
 
+void ArduinoPebbleSerial::notify(uint16_t service_id, uint16_t attribute_id) {
+  pebble_notify_attribute(service_id, attribute_id);
+}
+
 bool ArduinoPebbleSerial::is_connected(void) {
   return pebble_is_connected();
-}
-
-void debug_byte(uint8_t data) {
-  Serial.print("DEBUG: ");
-  Serial.println(data, DEC);
-}
-
-void debug_byte_hex(uint8_t data) {
-  Serial.print("DEBUG: 0x");
-  Serial.println(data, HEX);
 }

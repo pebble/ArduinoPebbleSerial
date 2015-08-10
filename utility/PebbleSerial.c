@@ -93,6 +93,8 @@ static const uint32_t BAUDS[] = { 9600, 14400, 19200, 28800, 38400, 57600, 67500
                                   230400, 250000, 460800 };
 _Static_assert((sizeof(BAUDS) / sizeof(BAUDS[0])) == PebbleBaudInvalid,
                "bauds table doesn't match up with PebbleBaud enum");
+static uint16_t s_notify_service;
+static uint16_t s_notify_attribute;
 
 
 void prv_set_baud(PebbleBaud baud) {
@@ -101,9 +103,8 @@ void prv_set_baud(PebbleBaud baud) {
   }
   s_current_baud = baud;
   s_callbacks.control(PebbleControlSetBaudRate, BAUDS[baud]);
-  s_callbacks.control(PebbleControlSetParityNone, 0);
-  s_callbacks.control(PebbleControlEnableTX, 0);
-  s_callbacks.control(PebbleControlDisableTX, 0);
+  s_callbacks.control(PebbleControlSetTxEnabled, true);
+  s_callbacks.control(PebbleControlSetTxEnabled, false);
 }
 
 void pebble_init(PebbleCallbacks callbacks, PebbleBaud baud) {
@@ -121,15 +122,15 @@ void pebble_prepare_for_read(uint8_t *buffer, size_t length) {
 }
 
 static void prv_send_flag(void) {
-  s_callbacks.write_byte(HDLC_FLAG);
+  s_callbacks.control(PebbleControlWriteByte, HDLC_FLAG);
 }
 
 static void prv_send_byte(uint8_t data, uint8_t *parity) {
   crc8_calculate_byte_streaming(data, parity);
   if (hdlc_encode(&data)) {
-    s_callbacks.write_byte(HDLC_ESCAPE);
+    s_callbacks.control(PebbleControlWriteByte, HDLC_ESCAPE);
   }
-  s_callbacks.write_byte(data);
+  s_callbacks.control(PebbleControlWriteByte, data);
 }
 
 static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data, size_t length,
@@ -137,7 +138,7 @@ static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data, 
   uint8_t parity = 0;
 
   // enable tx
-  s_callbacks.control(PebbleControlEnableTX, 0);
+  s_callbacks.control(PebbleControlSetTxEnabled, true);
 
   // send flag
   prv_send_flag();
@@ -172,7 +173,7 @@ static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data, 
   prv_send_flag();
 
   // flush and disable tx
-  s_callbacks.control(PebbleControlDisableTX, 0);
+  s_callbacks.control(PebbleControlSetTxEnabled, false);
 }
 
 static void prv_handle_link_control(uint8_t *buffer, uint32_t time) {
@@ -198,31 +199,25 @@ static void prv_handle_link_control(uint8_t *buffer, uint32_t time) {
   }
 }
 
-static uint32_t s_attr_data = 99999;
 static void prv_handle_generic_service(uint8_t *buffer) {
   GenericServicePayload *data = (GenericServicePayload *)buffer;
-  if ((data->version != 1) || (data->error != 0)) {
+  if (data->error != 0) {
     return;
   }
-  if ((data->service_id == 0x0001) && (data->attribute_id == 0x0001)) {
-    data->length = 2;
-    uint16_t service_id = 0x1001;
-    memcpy(data->data, &service_id, 2);
-  } else if ((data->service_id == 0x0001) && (data->attribute_id == 0x0002)) {
-    uint16_t info[2] = {0x1001, 0x1001};
+
+  if ((data->service_id == 0x0001) && (data->attribute_id == 0x0002)) {
+    // notification info attribute
+    if (!s_notify_service) {
+      return;
+    }
+    uint16_t info[2] = {s_notify_service, s_notify_attribute};
     data->length = sizeof(info);
     memcpy(data->data, &info, data->length);
-  } else if ((data->service_id == 0x1001) && (data->attribute_id == 0x1001)) {
-    if (data->length == 4) {
-      // it was a write
-      memcpy(&s_attr_data, data->data, data->length);
-      data->length = 0;
-    } else {
-      data->length = 4;
-      memcpy(data->data, &s_attr_data, data->length);
-    }
   } else {
-    return;
+    // allow the app to send a response to this
+    if (!s_callbacks.attribute(data->service_id, data->attribute_id, data->data, &(data->length))) {
+      return;
+    }
   }
   prv_write_internal(SmartstrapProfileGenericService, buffer,
                      sizeof(GenericServicePayload) + data->length, false);
@@ -350,14 +345,25 @@ bool pebble_write(const uint8_t *data, size_t length) {
 }
 
 void pebble_notify(void) {
-  s_callbacks.control(PebbleControlEnableTX, 0);
-  s_callbacks.control(PebbleControlSetParityEven, 0);
-  s_callbacks.write_byte(0x00);
-  s_callbacks.write_byte(0x00);
-  s_callbacks.write_byte(0x00);
-  // we must flush before changing the parity back
-  s_callbacks.control(PebbleControlDisableTX, 0);
-  s_callbacks.control(PebbleControlSetParityNone, 0);
+  s_callbacks.control(PebbleControlSetTxEnabled, true);
+  s_callbacks.control(PebbleControlWriteBreak, 0);
+  s_callbacks.control(PebbleControlWriteBreak, 0);
+  s_callbacks.control(PebbleControlWriteBreak, 0);
+  s_callbacks.control(PebbleControlSetTxEnabled, false);
+  prv_write_internal(SmartstrapProfileRawData, NULL, 0, true);
+}
+
+void pebble_notify_attribute(uint16_t service_id, uint16_t attribute_id) {
+  if (!service_id) {
+    return;
+  }
+  s_notify_service = service_id;
+  s_notify_attribute = service_id;
+  s_callbacks.control(PebbleControlSetTxEnabled, true);
+  s_callbacks.control(PebbleControlWriteBreak, 0);
+  s_callbacks.control(PebbleControlWriteBreak, 0);
+  s_callbacks.control(PebbleControlWriteBreak, 0);
+  s_callbacks.control(PebbleControlSetTxEnabled, false);
   prv_write_internal(SmartstrapProfileGenericService, NULL, 0, true);
 }
 

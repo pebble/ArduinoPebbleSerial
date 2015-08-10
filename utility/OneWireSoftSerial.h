@@ -1,3 +1,11 @@
+/*
+ * This file provides a one-wire (aka half duplex) software serial implementation to faciliate easy
+ * connection and communication with a Pebble watch via the smartstrap port. It was heavily inspired
+ * by Arduino's software serial library, with the code for calculating the delays copied verbatim.
+ * As is required by the license on Arduino's software serial library, this library is released
+ * under the LGPL v2.1 license.
+ */
+
 #ifndef __SOFT_SERIAL_H__
 #define __SOFT_SERIAL_H__
 
@@ -9,42 +17,12 @@
 
 class OneWireSoftSerial
 {
-private:
-  // per object data
-  static uint8_t _pin;
-  static uint8_t _bit_mask;
-  static volatile uint8_t *_port_output_register;
-  static volatile uint8_t *_port_input_register;
-  static volatile uint8_t *_pcint_maskreg;
-  static uint8_t _pcint_maskvalue;
-  static bool _is_break;
-
-  // Expressed as 4-cycle delays (must never be 0!)
-  static uint16_t _rx_delay_centering;
-  static uint16_t _rx_delay_intrabit;
-  static uint16_t _rx_delay_stopbit;
-  static uint16_t _tx_delay;
-
-  // static data
-  static char _receive_buffer[_SS_MAX_RX_BUFF];
-  static volatile uint8_t _receive_buffer_tail;
-  static volatile uint8_t _receive_buffer_head;
-
-  // private methods
-  static void set_rx_int_msk(bool enable) __attribute__((__always_inline__));
-
 public:
   // public methods
   static void begin(uint8_t pin, long speed);
   static int available();
-  static void write(uint8_t byte);
+  static void write(uint8_t byte, bool is_break = false);
   static int read();
-
-  static void enable_break(bool enabled);
-  static void set_tx_enabled(bool enable);
-
-  // public only for ISR
-  static void recv() __attribute__((__always_inline__));
 };
 
 #endif

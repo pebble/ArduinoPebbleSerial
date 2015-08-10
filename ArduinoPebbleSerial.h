@@ -16,6 +16,7 @@ public:
   static bool feed(size_t *length, bool *is_read);
   static bool write(const uint8_t *payload, size_t length);
   static void notify(void);
+  static void notify(uint16_t service_id, uint16_t attribute_id);
   static bool is_connected(void);
 };
 
