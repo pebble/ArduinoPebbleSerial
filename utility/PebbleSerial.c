@@ -344,13 +344,17 @@ bool pebble_write(const uint8_t *data, size_t length) {
   return true;
 }
 
-void pebble_notify(void) {
+void prv_notify_profile(SmartstrapProfile profile) {
   s_callbacks.control(PebbleControlSetTxEnabled, true);
   s_callbacks.control(PebbleControlWriteBreak, 0);
   s_callbacks.control(PebbleControlWriteBreak, 0);
   s_callbacks.control(PebbleControlWriteBreak, 0);
   s_callbacks.control(PebbleControlSetTxEnabled, false);
-  prv_write_internal(SmartstrapProfileRawData, NULL, 0, true);
+  prv_write_internal(profile, NULL, 0, true);
+}
+
+void pebble_notify(void) {
+  prv_notify_profile(SmartstrapProfileRawData);
 }
 
 void pebble_notify_attribute(uint16_t service_id, uint16_t attribute_id) {
@@ -359,12 +363,7 @@ void pebble_notify_attribute(uint16_t service_id, uint16_t attribute_id) {
   }
   s_notify_service = service_id;
   s_notify_attribute = service_id;
-  s_callbacks.control(PebbleControlSetTxEnabled, true);
-  s_callbacks.control(PebbleControlWriteBreak, 0);
-  s_callbacks.control(PebbleControlWriteBreak, 0);
-  s_callbacks.control(PebbleControlWriteBreak, 0);
-  s_callbacks.control(PebbleControlSetTxEnabled, false);
-  prv_write_internal(SmartstrapProfileGenericService, NULL, 0, true);
+  prv_notify_profile(SmartstrapProfileGenericService);
 }
 
 bool pebble_is_connected(void) {

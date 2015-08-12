@@ -51,6 +51,9 @@ void loop() {
     }
     // notify the pebble every 250ms
     static uint32_t last_check = 0;
+    if (last_check == 0) {
+      last_check = millis();
+    }
     if (millis() - last_check  > 250) {
       Serial.println("NOTIFY");
       ArduinoPebbleSerial::notify(0x1001, 0x1001);

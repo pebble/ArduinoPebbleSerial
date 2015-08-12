@@ -11,6 +11,7 @@ extern "C" {
 static bool s_is_hardware;
 static uint8_t *s_buffer;
 static size_t s_buffer_length;
+static uint8_t s_pin;
 
 static void prv_control_cb(PebbleControl cmd, uint32_t arg) {
   switch (cmd) {
@@ -23,7 +24,7 @@ static void prv_control_cb(PebbleControl cmd, uint32_t arg) {
       }
       BOARD_SERIAL.begin(arg);
     } else {
-      OneWireSoftSerial::begin(1, arg);
+      OneWireSoftSerial::begin(s_pin, arg);
     }
     Serial.print("Setting baud rate to ");
     Serial.println(arg, DEC);
@@ -98,6 +99,7 @@ static void prv_begin(uint8_t *buffer, size_t length) {
 
 void ArduinoPebbleSerial::begin_software(uint8_t pin, uint8_t *buffer, size_t length) {
   s_is_hardware = false;
+  s_pin = pin;
   prv_begin(buffer, length);
 }
 
