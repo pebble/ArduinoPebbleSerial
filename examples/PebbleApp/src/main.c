@@ -122,8 +122,7 @@ static void prv_init(void) {
   };
   smartstrap_subscribe(handlers);
   smartstrap_set_timeout(50);
-  s_attr = smartstrap_attribute_create(0, 0, 20);
-  (void)*(uint8_t *)s_attr; // ASSERT that it's valid
+  s_attr = smartstrap_attribute_create(0x1001, 0x1001, 20);
   app_timer_register(1000, prv_send_request, NULL);
 }
 
@@ -134,7 +133,9 @@ static void prv_deinit(void) {
 
 int main(void) {
   prv_init();
-  app_event_loop();
+  if (s_attr) {
+    app_event_loop();
+  }
   prv_deinit();
 }
 

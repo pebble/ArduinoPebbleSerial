@@ -74,6 +74,7 @@ static bool prv_handle_attribute(uint16_t service_id, uint16_t attribute_id, uin
       // this was a read
       memcpy(buffer, &s_test_attr_data, sizeof(s_test_attr_data));
       *length = sizeof(s_test_attr_data);
+      s_test_attr_data--;
     } else {
       // this was a write
       memcpy(&s_test_attr_data, buffer, sizeof(s_test_attr_data));
