@@ -55,8 +55,8 @@ void loop() {
       last_check = millis();
     }
     if (millis() - last_check  > 250) {
-      Serial.println("NOTIFY");
-      ArduinoPebbleSerial::notify(0x1001, 0x1001);
+      //Serial.println("NOTIFY");
+      //ArduinoPebbleSerial::notify(0x1001, 0x1001);
       last_check = millis();
     }
   } else {
