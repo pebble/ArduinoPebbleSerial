@@ -77,12 +77,13 @@ typedef struct __attribute__((packed)) {
   uint8_t version;
   uint16_t service_id;
   uint16_t attribute_id;
+  uint8_t type;
   uint8_t error;
   uint16_t length;
   uint8_t data[];
 } GenericServicePayload;
 
-static uint32_t s_last_status_time = 0;
+static uint32_t s_last_message_time = 0;
 static PebbleFrameInfo s_frame;
 static PebbleCallbacks s_callbacks;
 static bool s_connected;
@@ -176,11 +177,10 @@ static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data, 
   s_callbacks.control(PebbleControlSetTxEnabled, false);
 }
 
-static void prv_handle_link_control(uint8_t *buffer, uint32_t time) {
+static void prv_handle_link_control(uint8_t *buffer) {
   // we will re-use the buffer for the response
   LinkControlType type = buffer[1];
   if (type == LinkControlTypeStatus) {
-    s_last_status_time = time;
     if (s_current_baud != s_target_baud) {
       buffer[2] = LinkControlStatusBaudRate;
     } else {
@@ -205,7 +205,7 @@ static void prv_handle_generic_service(uint8_t *buffer) {
     return;
   }
 
-  if ((data->service_id == 0x0001) && (data->attribute_id == 0x0002)) {
+  if ((data->service_id == 0x0101) && (data->attribute_id == 0x0102)) {
     // notification info attribute
     if (!s_notify_service) {
       return;
@@ -304,16 +304,19 @@ bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read, uint32_t ti
       // reset the frame
       pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
     } else if (s_frame.header.profile == SmartstrapProfileLinkControl) {
+      s_last_message_time = time;
       // handle this link control frame
-      prv_handle_link_control(s_frame.payload, time);
+      prv_handle_link_control(s_frame.payload);
       // prepare for the next frame
       pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
     } else if (s_frame.header.profile == SmartstrapProfileGenericService) {
+      s_last_message_time = time;
       // handle this generic service frame
       prv_handle_generic_service(s_frame.payload);
       // prepare for the next frame
       pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
     } else {
+      s_last_message_time = time;
       s_frame.read_ready = false;
       *length = s_frame.length - FRAME_MIN_LENGTH;
       *is_read = FLAGS_GET(s_frame.header.flags, FLAGS_IS_READ_MASK, FLAGS_IS_READ_OFFSET);
@@ -322,13 +325,13 @@ bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read, uint32_t ti
     }
   }
 
-  if (time < s_last_status_time) {
+  if (time < s_last_message_time) {
     // wrapped around
-    s_last_status_time = time;
-  } else if (time - s_last_status_time > 10000) {
-    // haven't received a valid status frame in over 10 seconds so reset the baudrate
+    s_last_message_time = time;
+  } else if (time - s_last_message_time > 10000) {
+    // haven't received a valid frame in over 10 seconds so reset the baudrate
     prv_set_baud(PebbleBaud9600);
-    s_last_status_time = time;
+    s_last_message_time = time;
     s_connected = false;
   }
 

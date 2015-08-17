@@ -42,6 +42,9 @@ void loop() {
       memcpy(pebble_buffer, &current_time, 4);
       ArduinoPebbleSerial::write(pebble_buffer, 4);
       Serial.println("WRITE");
+    } else {
+      Serial.print("GOT RAW WRITE: ");
+      Serial.println((uint8_t)pebble_buffer[0], DEC);
     }
   }
 

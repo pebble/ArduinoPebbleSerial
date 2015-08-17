@@ -5,13 +5,12 @@
 
 static Window *s_main_window;
 static TextLayer *s_status_layer;
-static TextLayer *s_info_layer;
-#if 0
-static uint8_t s_buffer[MAX_READ_SIZE + 1];
-static bool s_did_set;
-#endif
-static char s_text_buffer[20];
-static SmartstrapAttribute *s_attr;
+static TextLayer *s_attr_text_layer;
+static TextLayer *s_raw_text_layer;
+static char s_text_buffer1[20];
+static char s_text_buffer2[20];
+static SmartstrapAttribute *s_raw_attribute;
+static SmartstrapAttribute *s_attr_attribute;
 
 static void prv_update_text(void) {
   if (smartstrap_service_is_available(SMARTSTRAP_RAW_DATA_SERVICE_ID)) {
@@ -21,71 +20,125 @@ static void prv_update_text(void) {
   }
 }
 
-#if 0
-static void prv_read_done(uint16_t service_id, uint16_t attribute_id, bool success,
-                          uint32_t length) {
-  //APP_LOG(APP_LOG_LEVEL_DEBUG, "HERE: success=%d, length=%d", success, (int)length);
-  if (success) {
-    if (s_did_set) {
-      if (length != 0) {
-        APP_LOG(APP_LOG_LEVEL_ERROR, "UNEXPECTED LENGTH");
-        return;
-      }
-      // this is a response to our write, so do a read now
-      smartstrap_get_attribute(service_id, attribute_id, s_buffer, MAX_READ_SIZE);
-      s_did_set = false;
-    } else {
-      if (length != 4) {
-        APP_LOG(APP_LOG_LEVEL_ERROR, "UNEXPECTED LENGTH");
-        return;
-      }
-      // this is the response to our read
-      uint32_t time;
-      memcpy(&time, s_buffer, 4);
-      snprintf(s_text_buffer, 20, "%u", (unsigned int)time);
-      text_layer_set_text(s_info_layer, s_text_buffer);
-    }
-  }
-}
-
-static void prv_notify_callback(uint16_t service_id, uint16_t attribute_id) {
-  if (service_id != 0x1001 || attribute_id != 0x1001) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "GOT NOTIFY FOR UNEXPECTED SERVICE/ATTRIBUTE (0x%x,0x%x)",
-            service_id, attribute_id);
-    return;
-  }
-  uint32_t data = rand() % 1000;
-  memcpy(s_buffer, &data, 4);
-  smartstrap_set_attribute(0x1001, 0x1001, s_buffer, 4);
-  s_did_set = true;
-}
-#endif
-
-static void prv_read_complete(SmartstrapAttribute *attr, SmartstrapResult result,
+static void prv_did_read(SmartstrapAttribute *attr, SmartstrapResult result,
                               const uint8_t *data, size_t length) {
-  //APP_LOG(APP_LOG_LEVEL_DEBUG, "GOT READ: result=%d, length=%d", result, length);
-  if (result == SmartstrapResultOk) {
-    if (length == 4) {
+  if (attr == s_attr_attribute) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "did_read(s_attr_attribute, %d, %d)", result, length);
+    if (result == SmartstrapResultOk && length == 4) {
+      uint32_t num;
+      memcpy(&num, data, 4);
+      snprintf(s_text_buffer1, 20, "%u", (unsigned int)num);
+      text_layer_set_text(s_attr_text_layer, s_text_buffer1);
+    }
+  } else if (attr == s_raw_attribute) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "did_read(s_raw_attribute, %d, %d)", result, length);
+    if (result == SmartstrapResultOk && length == 4) {
       uint32_t time;
       memcpy(&time, data, 4);
-      snprintf(s_text_buffer, 20, "%u", (unsigned int)time);
-      text_layer_set_text(s_info_layer, s_text_buffer);
+      snprintf(s_text_buffer2, 20, "%u", (unsigned int)time);
+      text_layer_set_text(s_raw_text_layer, s_text_buffer2);
     }
+  } else {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "did_read(<%p>, %d)", attr, result);
+  }
+}
+
+static void prv_did_write(SmartstrapAttribute *attr, SmartstrapResult result) {
+  if (attr == s_attr_attribute) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "did_write(s_attr_attribute, %d)", result);
+  } else if (attr == s_raw_attribute) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "did_write(s_raw_attribute, %d)", result);
+  } else {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "did_write(<%p>, %d)", attr, result);
+  }
+}
+
+static void prv_write_read_test_attr(void) {
+  SmartstrapResult result;
+  if (!smartstrap_service_is_available(smartstrap_attribute_get_service_id(s_attr_attribute))) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "s_attr_attribute is not available");
+    return;
+  }
+
+  // get the write buffer
+  uint8_t *buffer = NULL;
+  size_t length = 0;
+  result = smartstrap_attribute_begin_write(s_attr_attribute, &buffer, &length);
+  if (result != SmartstrapResultOk) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Write of s_attr_attribute failed with result %d", result);
+    return;
+  }
+
+  // write the data into the buffer
+  uint32_t num = rand() % 10000;
+  memcpy(buffer, &num, 4);
+
+  // send it off
+  result = smartstrap_attribute_end_write(s_attr_attribute, sizeof(num), true);
+  if (result != SmartstrapResultOk) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Write of s_attr_attribute failed with result %d", result);
+  }
+}
+
+static void prv_write_raw(void) {
+  SmartstrapResult result;
+  if (!smartstrap_service_is_available(smartstrap_attribute_get_service_id(s_raw_attribute))) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "s_raw_attribute is not available");
+    return;
+  }
+
+  // get the write buffer
+  uint8_t *buffer = NULL;
+  size_t length = 0;
+  result = smartstrap_attribute_begin_write(s_raw_attribute, &buffer, &length);
+  if (result != SmartstrapResultOk) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Write of s_raw_attribute failed with result %d", result);
+    return;
+  }
+
+  // write the data into the buffer
+  uint8_t num = rand() % 200;
+  memcpy(buffer, &num, 1);
+
+  result = smartstrap_attribute_end_write(s_raw_attribute, sizeof(num), false);
+  if (result != SmartstrapResultOk) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Write of s_raw_attribute failed with result %d", result);
+  }
+}
+
+static void prv_read_raw(void) {
+  if (!smartstrap_service_is_available(smartstrap_attribute_get_service_id(s_raw_attribute))) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "s_raw_attribute is not available");
+    return;
+  }
+  SmartstrapResult result = smartstrap_attribute_read(s_raw_attribute);
+  if (result != SmartstrapResultOk) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Write of s_raw_attribute failed: %d", result);
   }
 }
 
 static void prv_send_request(void *context) {
-  SmartstrapResult result = smartstrap_attribute_read(s_attr);
-  //APP_LOG(APP_LOG_LEVEL_DEBUG, "DID READ: result=%d", result);
+  SmartstrapResult result;
+  prv_write_read_test_attr();
+#if 0
+  if (rand() % 2) {
+    prv_write_raw();
+  } else {
+    prv_read_raw();
+  }
+#else
+  prv_read_raw();
+#endif
   app_timer_register(900, prv_send_request, NULL);
 }
 
 static void prv_availablility_status_changed(SmartstrapServiceId service_id, bool is_available) {
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Availability for 0x%x is %d", service_id, is_available);
   prv_update_text();
 }
 
 static void prv_main_window_load(Window *window) {
-  s_status_layer = text_layer_create(GRect(0, 25, 144, 40));
+  s_status_layer = text_layer_create(GRect(0, 15, 144, 40));
   text_layer_set_font(s_status_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28));
   prv_update_text();
   text_layer_set_text_color(s_status_layer, GColorBlack);
@@ -94,14 +147,23 @@ static void prv_main_window_load(Window *window) {
   text_layer_set_overflow_mode(s_status_layer, GTextOverflowModeWordWrap);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_status_layer));
 
-  s_info_layer = text_layer_create(GRect(0, 70, 144, 60));
-  text_layer_set_font(s_info_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28));
-  text_layer_set_text(s_info_layer, "-");
-  text_layer_set_text_color(s_info_layer, GColorBlack);
-  text_layer_set_background_color(s_info_layer, GColorClear);
-  text_layer_set_text_alignment(s_info_layer, GTextAlignmentCenter);
-  text_layer_set_overflow_mode(s_info_layer, GTextOverflowModeWordWrap);
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_info_layer));
+  s_attr_text_layer = text_layer_create(GRect(0, 60, 144, 40));
+  text_layer_set_font(s_attr_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28));
+  text_layer_set_text(s_attr_text_layer, "-");
+  text_layer_set_text_color(s_attr_text_layer, GColorBlack);
+  text_layer_set_background_color(s_attr_text_layer, GColorClear);
+  text_layer_set_text_alignment(s_attr_text_layer, GTextAlignmentCenter);
+  text_layer_set_overflow_mode(s_attr_text_layer, GTextOverflowModeWordWrap);
+  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_attr_text_layer));
+
+  s_raw_text_layer = text_layer_create(GRect(0, 100, 144, 40));
+  text_layer_set_font(s_raw_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28));
+  text_layer_set_text(s_raw_text_layer, "-");
+  text_layer_set_text_color(s_raw_text_layer, GColorBlack);
+  text_layer_set_background_color(s_raw_text_layer, GColorClear);
+  text_layer_set_text_alignment(s_raw_text_layer, GTextAlignmentCenter);
+  text_layer_set_overflow_mode(s_raw_text_layer, GTextOverflowModeWordWrap);
+  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_raw_text_layer));
 }
 
 static void prv_main_window_unload(Window *window) {
@@ -118,11 +180,13 @@ static void prv_init(void) {
   window_stack_push(s_main_window, true);
   SmartstrapHandlers handlers = (SmartstrapHandlers) {
     .availability_did_change = prv_availablility_status_changed,
-    .did_read = prv_read_complete
+    .did_write = prv_did_write,
+    .did_read = prv_did_read
   };
   smartstrap_subscribe(handlers);
   smartstrap_set_timeout(50);
-  s_attr = smartstrap_attribute_create(0x1001, 0x1001, 20);
+  s_raw_attribute = smartstrap_attribute_create(0, 0, 20);
+  s_attr_attribute = smartstrap_attribute_create(0x1001, 0x1001, 20);
   app_timer_register(1000, prv_send_request, NULL);
 }
 
@@ -133,7 +197,7 @@ static void prv_deinit(void) {
 
 int main(void) {
   prv_init();
-  if (s_attr) {
+  if (s_attr_attribute && s_raw_attribute) {
     app_event_loop();
   }
   prv_deinit();

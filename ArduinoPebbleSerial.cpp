@@ -62,22 +62,22 @@ static void prv_control_cb(PebbleControl cmd, uint32_t arg) {
 
 static bool prv_handle_attribute(uint16_t service_id, uint16_t attribute_id, uint8_t *buffer,
                                  uint16_t *length) {
-  if ((service_id == 0x0001) && (attribute_id == 0x0001)) {
+  if ((service_id == 0x0101) && (attribute_id == 0x0001)) {
     // service discovery
     uint16_t service_id = 0x1001;
     memcpy(buffer, &service_id, sizeof(service_id));
     *length = sizeof(service_id);
     return true;
   } else if ((service_id == 0x1001) && (attribute_id == 0x1001)) {
-    static uint32_t s_test_attr_data = 9999;
-    if (*length == 0) {
-      // this was a read
+    static uint32_t s_test_attr_data = 99999;
+    if (*length == 4) {
+      // read the previous value and write the new one
+      uint32_t new_value = 99999;
+      memcpy(&new_value, buffer, sizeof(new_value));
       memcpy(buffer, &s_test_attr_data, sizeof(s_test_attr_data));
+      s_test_attr_data = new_value;
       *length = sizeof(s_test_attr_data);
-      s_test_attr_data--;
     } else {
-      // this was a write
-      memcpy(&s_test_attr_data, buffer, sizeof(s_test_attr_data));
       *length = 0;
     }
     return true;
