@@ -4,6 +4,7 @@
 
 #define PEBBLE_PIN        1
 STATIC_ASSERT_VALID_ONE_WIRE_SOFT_SERIAL_PIN(PEBBLE_PIN);
+static const uint16_t supported_services[] = {(uint16_t)0x1001};
 #define RECV_BUFFER_SIZE  200
 static uint8_t pebble_buffer[RECV_BUFFER_SIZE];
 static uint32_t connected_time = 0;
@@ -15,7 +16,8 @@ void setup() {
   digitalWrite(PIN_D6, LOW);
 
   // Setup the Pebble smartstrap connection using one wire software serial
-  ArduinoPebbleSerial::begin_software(PEBBLE_PIN, pebble_buffer, RECV_BUFFER_SIZE);
+  ArduinoPebbleSerial::begin_software(PEBBLE_PIN, pebble_buffer, RECV_BUFFER_SIZE, Baud57600,
+                                      supported_services, 1);
 }
 
 void loop() {
@@ -30,21 +32,38 @@ void loop() {
   // Let the ArduinoPebbleSerial code do its processing
   size_t length;
   bool is_read;
-  if (ArduinoPebbleSerial::feed(&length, &is_read)) {
-    // we have a frame to process
-    static bool led_status = false;
-    led_status = !led_status;
-    digitalWrite(PIN_D6, led_status);
-    Serial.println("READ");
-    if (is_read) {
-      // send a response to the Pebble - reuse the same buffer for the response
-      uint32_t current_time = millis();
-      memcpy(pebble_buffer, &current_time, 4);
-      ArduinoPebbleSerial::write(pebble_buffer, 4);
-      Serial.println("WRITE");
+  uint16_t service_id;
+  uint16_t attribute_id;
+  if (ArduinoPebbleSerial::feed(&service_id, &attribute_id, &length, &is_read)) {
+    if ((service_id == 0) && (attribute_id == 0)) {
+      // we have a raw data frame to process
+      static bool led_status = false;
+      led_status = !led_status;
+      digitalWrite(PIN_D6, led_status);
+      Serial.println("READ");
+      if (is_read) {
+        // send a response to the Pebble - reuse the same buffer for the response
+        uint32_t current_time = millis();
+        memcpy(pebble_buffer, &current_time, 4);
+        ArduinoPebbleSerial::write(0, 0, true, pebble_buffer, 4);
+        Serial.println("WRITE");
+      } else {
+        Serial.print("GOT RAW WRITE: ");
+        Serial.println((uint8_t)pebble_buffer[0], DEC);
+      }
+    } else if ((service_id == 0x1001) && (attribute_id == 0x1001)) {
+      static uint32_t s_test_attr_data = 99999;
+      if (length == 4) {
+        // read the previous value and write the new one
+        uint32_t old_value = s_test_attr_data;
+        memcpy(&s_test_attr_data, pebble_buffer, sizeof(s_test_attr_data));
+        ArduinoPebbleSerial::write(service_id, attribute_id, true, (const uint8_t *)&old_value,
+                                     sizeof(old_value));
+      } else {
+        ArduinoPebbleSerial::write(service_id, attribute_id, true, NULL, 0);
+      }
     } else {
-      Serial.print("GOT RAW WRITE: ");
-      Serial.println((uint8_t)pebble_buffer[0], DEC);
+      ArduinoPebbleSerial::write(service_id, attribute_id, false, NULL, 0);
     }
   }
 
@@ -57,9 +76,9 @@ void loop() {
     if (last_check == 0) {
       last_check = millis();
     }
-    if (millis() - last_check  > 250) {
-      //Serial.println("NOTIFY");
-      //ArduinoPebbleSerial::notify(0x1001, 0x1001);
+    if (millis() - last_check  > 2500) {
+      Serial.println("NOTIFY");
+      ArduinoPebbleSerial::notify(0x1001, 0x1001);
       last_check = millis();
     }
   } else {

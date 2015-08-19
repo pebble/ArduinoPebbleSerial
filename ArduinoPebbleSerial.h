@@ -9,13 +9,30 @@
 #include <Arduino.h>
 #include "utility/OneWireSoftSerial.h"
 
+typedef enum {
+  Baud9600,
+  Baud14400,
+  Baud19200,
+  Baud28800,
+  Baud38400,
+  Baud57600,
+  Baud62500,
+  Baud115200,
+  Baud125000,
+  Baud230400,
+  Baud250000,
+  Baud460800,
+} Baud;
+
 class ArduinoPebbleSerial {
 public:
-  static void begin_software(uint8_t pin, uint8_t *buffer, size_t length);
-  static void begin_hardware(uint8_t *buffer, size_t length);
-  static bool feed(size_t *length, bool *is_read);
-  static bool write(const uint8_t *payload, size_t length);
-  static void notify(void);
+  static void begin_software(uint8_t pin, uint8_t *buffer, size_t length, Baud baud,
+                             const uint16_t *services, uint8_t num_services);
+  static void begin_hardware(uint8_t *buffer, size_t length, Baud baud, const uint16_t *services,
+                             uint8_t num_services);
+  static bool feed(uint16_t *service_id, uint16_t *attribute_id, size_t *length, bool *is_read);
+  static bool write(uint16_t service_id, uint16_t attribute_id, bool success,
+                    const uint8_t *payload, size_t length);
   static void notify(uint16_t service_id, uint16_t attribute_id);
   static bool is_connected(void);
 };

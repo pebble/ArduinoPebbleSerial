@@ -100,7 +100,7 @@ static void prv_write_raw(void) {
   uint8_t num = rand() % 200;
   memcpy(buffer, &num, 1);
 
-  result = smartstrap_attribute_end_write(s_raw_attribute, sizeof(num), false);
+  result = smartstrap_attribute_end_write(s_raw_attribute, 100, false);
   if (result != SmartstrapResultOk) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "Write of s_raw_attribute failed with result %d", result);
   }
@@ -113,7 +113,7 @@ static void prv_read_raw(void) {
   }
   SmartstrapResult result = smartstrap_attribute_read(s_raw_attribute);
   if (result != SmartstrapResultOk) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Write of s_raw_attribute failed: %d", result);
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Read of s_raw_attribute failed with result: %d", result);
   }
 }
 
@@ -135,6 +135,16 @@ static void prv_send_request(void *context) {
 static void prv_availablility_status_changed(SmartstrapServiceId service_id, bool is_available) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Availability for 0x%x is %d", service_id, is_available);
   prv_update_text();
+}
+
+static void prv_notified(SmartstrapAttribute *attr) {
+  if (attr == s_attr_attribute) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "notified(s_attr_attribute)");
+  } else if (attr == s_raw_attribute) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "notified(s_raw_attribute)");
+  } else {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "notified(<%p>)", attr);
+  }
 }
 
 static void prv_main_window_load(Window *window) {
@@ -181,11 +191,12 @@ static void prv_init(void) {
   SmartstrapHandlers handlers = (SmartstrapHandlers) {
     .availability_did_change = prv_availablility_status_changed,
     .did_write = prv_did_write,
-    .did_read = prv_did_read
+    .did_read = prv_did_read,
+    .notified = prv_notified
   };
   smartstrap_subscribe(handlers);
   smartstrap_set_timeout(50);
-  s_raw_attribute = smartstrap_attribute_create(0, 0, 20);
+  s_raw_attribute = smartstrap_attribute_create(0, 0, 2000);
   s_attr_attribute = smartstrap_attribute_create(0x1001, 0x1001, 20);
   app_timer_register(1000, prv_send_request, NULL);
 }
@@ -197,9 +208,11 @@ static void prv_deinit(void) {
 
 int main(void) {
   prv_init();
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "STARTING APP");
   if (s_attr_attribute && s_raw_attribute) {
     app_event_loop();
   }
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "ENDING APP");
   prv_deinit();
 }
 

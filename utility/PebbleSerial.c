@@ -11,6 +11,7 @@
 #define UNLIKELY(x) (__builtin_expect(!!(x), 0))
 
 #define PROTOCOL_VERSION              1
+#define GENERIC_SERVICE_VERSION       1
 
 #define FRAME_MIN_LENGTH              8
 #define FRAME_VERSION_OFFSET          0
@@ -83,9 +84,10 @@ typedef struct __attribute__((packed)) {
   uint8_t data[];
 } GenericServicePayload;
 
+static SmartstrapGenericServiceType s_last_generic_service_type;
 static uint32_t s_last_message_time = 0;
 static PebbleFrameInfo s_frame;
-static PebbleCallbacks s_callbacks;
+static SmartstrapCallback s_callback;
 static bool s_connected;
 static bool s_can_respond;
 static PebbleBaud s_current_baud = PebbleBaudInvalid;
@@ -96,6 +98,8 @@ _Static_assert((sizeof(BAUDS) / sizeof(BAUDS[0])) == PebbleBaudInvalid,
                "bauds table doesn't match up with PebbleBaud enum");
 static uint16_t s_notify_service;
 static uint16_t s_notify_attribute;
+static const uint16_t *s_supported_services;
+static uint8_t s_num_supported_services;
 
 
 void prv_set_baud(PebbleBaud baud) {
@@ -103,14 +107,17 @@ void prv_set_baud(PebbleBaud baud) {
     return;
   }
   s_current_baud = baud;
-  s_callbacks.control(PebbleControlSetBaudRate, BAUDS[baud]);
-  s_callbacks.control(PebbleControlSetTxEnabled, true);
-  s_callbacks.control(PebbleControlSetTxEnabled, false);
+  s_callback(SmartstrapCmdSetBaudRate, BAUDS[baud]);
+  s_callback(SmartstrapCmdSetTxEnabled, true);
+  s_callback(SmartstrapCmdSetTxEnabled, false);
 }
 
-void pebble_init(PebbleCallbacks callbacks, PebbleBaud baud) {
-  s_callbacks = callbacks;
+void pebble_init(SmartstrapCallback callback, PebbleBaud baud, const uint16_t *services,
+                 uint8_t num_services) {
+  s_callback = callback;
   s_target_baud = baud;
+  s_supported_services = services;
+  s_num_supported_services = num_services;
   prv_set_baud(PebbleBaud9600);
 }
 
@@ -123,23 +130,23 @@ void pebble_prepare_for_read(uint8_t *buffer, size_t length) {
 }
 
 static void prv_send_flag(void) {
-  s_callbacks.control(PebbleControlWriteByte, HDLC_FLAG);
+  s_callback(SmartstrapCmdWriteByte, HDLC_FLAG);
 }
 
 static void prv_send_byte(uint8_t data, uint8_t *parity) {
   crc8_calculate_byte_streaming(data, parity);
   if (hdlc_encode(&data)) {
-    s_callbacks.control(PebbleControlWriteByte, HDLC_ESCAPE);
+    s_callback(SmartstrapCmdWriteByte, HDLC_ESCAPE);
   }
-  s_callbacks.control(PebbleControlWriteByte, data);
+  s_callback(SmartstrapCmdWriteByte, data);
 }
 
-static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data, size_t length,
-                               bool is_notify) {
+static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data1, size_t length1,
+                               const uint8_t *data2, size_t length2, bool is_notify) {
   uint8_t parity = 0;
 
   // enable tx
-  s_callbacks.control(PebbleControlSetTxEnabled, true);
+  s_callback(SmartstrapCmdSetTxEnabled, true);
 
   // send flag
   prv_send_flag();
@@ -163,8 +170,11 @@ static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data, 
 
   // send data
   size_t i;
-  for (i = 0; i < length; i++) {
-    prv_send_byte(data[i], &parity);
+  for (i = 0; i < length1; ++i) {
+    prv_send_byte(data1[i], &parity);
+  }
+  for (i = 0; i < length2; ++i) {
+    prv_send_byte(data2[i], &parity);
   }
 
   // send parity
@@ -174,7 +184,7 @@ static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data, 
   prv_send_flag();
 
   // flush and disable tx
-  s_callbacks.control(PebbleControlSetTxEnabled, false);
+  s_callback(SmartstrapCmdSetTxEnabled, false);
 }
 
 static void prv_handle_link_control(uint8_t *buffer) {
@@ -187,40 +197,44 @@ static void prv_handle_link_control(uint8_t *buffer) {
       buffer[2] = LinkControlStatusOk;
       s_connected = true;
     }
-    prv_write_internal(SmartstrapProfileLinkControl, buffer, 3, false);
+    prv_write_internal(SmartstrapProfileLinkControl, buffer, 3, NULL, 0, false);
   } else if (type == LinkControlTypeProfiles) {
     buffer[2] = SmartstrapProfileRawData;
     buffer[3] = SmartstrapProfileGenericService;
-    prv_write_internal(SmartstrapProfileLinkControl, buffer, 4, false);
+    prv_write_internal(SmartstrapProfileLinkControl, buffer, 4, NULL, 0, false);
   } else if (type == LinkControlTypeBaud) {
     buffer[2] = 0x05;
-    prv_write_internal(SmartstrapProfileLinkControl, buffer, 3, false);
+    prv_write_internal(SmartstrapProfileLinkControl, buffer, 3, NULL, 0, false);
     prv_set_baud(s_target_baud);
   }
 }
 
-static void prv_handle_generic_service(uint8_t *buffer) {
-  GenericServicePayload *data = (GenericServicePayload *)buffer;
+static bool prv_handle_generic_service(GenericServicePayload *data) {
   if (data->error != 0) {
-    return;
+    return true;
   }
 
-  if ((data->service_id == 0x0101) && (data->attribute_id == 0x0102)) {
+  uint16_t service_id = data->service_id;
+  uint16_t attribute_id = data->attribute_id;
+  s_last_generic_service_type = data->type;
+  uint16_t length = data->length;
+  if ((service_id == 0x0101) && (attribute_id == 0x0002)) {
     // notification info attribute
-    if (!s_notify_service) {
-      return;
+    if (s_notify_service) {
+      uint16_t info[2] = {s_notify_service, s_notify_attribute};
+      length = sizeof(info);
+      s_can_respond = true;
+      pebble_write(service_id, attribute_id, true, (const uint8_t *)&info, length);
     }
-    uint16_t info[2] = {s_notify_service, s_notify_attribute};
-    data->length = sizeof(info);
-    memcpy(data->data, &info, data->length);
-  } else {
-    // allow the app to send a response to this
-    if (!s_callbacks.attribute(data->service_id, data->attribute_id, data->data, &(data->length))) {
-      return;
-    }
+    return true;
+  } else if ((service_id == 0x0101) && (attribute_id == 0x0001)) {
+    // this is a service discovery frame
+    s_can_respond = true;
+    pebble_write(service_id, attribute_id, true, (const uint8_t *)s_supported_services,
+                 s_num_supported_services * sizeof(uint16_t));
+    return true;
   }
-  prv_write_internal(SmartstrapProfileGenericService, buffer,
-                     sizeof(GenericServicePayload) + data->length, false);
+  return false;
 }
 
 static void prv_store_byte(const uint8_t data) {
@@ -278,7 +292,8 @@ static void prv_frame_validate(void) {
   }
 }
 
-bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read, uint32_t time) {
+bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_id, size_t *length,
+                        bool *is_read, uint32_t time) {
   if (!s_frame.read_ready || s_frame.should_drop) {
     // we shouldn't be reading new data
     return false;
@@ -300,6 +315,7 @@ bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read, uint32_t ti
   }
 
   if (is_complete) {
+    bool give_to_user = false;
     if (s_frame.should_drop) {
       // reset the frame
       pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
@@ -311,15 +327,30 @@ bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read, uint32_t ti
       pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
     } else if (s_frame.header.profile == SmartstrapProfileGenericService) {
       s_last_message_time = time;
+      GenericServicePayload header = *(GenericServicePayload *)s_frame.payload;
+      memmove(s_frame.payload, &s_frame.payload[sizeof(header)], header.length);
       // handle this generic service frame
-      prv_handle_generic_service(s_frame.payload);
-      // prepare for the next frame
-      pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
+      if (prv_handle_generic_service(&header)) {
+        // we handled it, so prepare for the next frame
+        pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
+      } else {
+        // pass up to user to handle
+        give_to_user = true;
+        *service_id = header.service_id;
+        *attribute_id = header.attribute_id;
+        *length = header.length;
+        *is_read = true;
+      }
     } else {
-      s_last_message_time = time;
-      s_frame.read_ready = false;
+      give_to_user = true;
+      *service_id = 0;
+      *attribute_id = 0;
       *length = s_frame.length - FRAME_MIN_LENGTH;
       *is_read = FLAGS_GET(s_frame.header.flags, FLAGS_IS_READ_MASK, FLAGS_IS_READ_OFFSET);
+    }
+    if (give_to_user) {
+      s_last_message_time = time;
+      s_frame.read_ready = false;
       s_can_respond = true;
       return true;
     }
@@ -338,35 +369,49 @@ bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read, uint32_t ti
   return false;
 }
 
-bool pebble_write(const uint8_t *data, size_t length) {
+bool pebble_write(uint16_t service_id, uint16_t attribute_id, bool success, const uint8_t *buffer,
+                  uint16_t length) {
   if (!s_can_respond) {
     return false;
   }
-  prv_write_internal(SmartstrapProfileRawData, data, length, false);
+  if (service_id == 0) {
+    if (attribute_id != 0) {
+      return false;
+    }
+    prv_write_internal(SmartstrapProfileRawData, buffer, length, NULL, 0, false);
+  } else if (service_id < 0x00FF) {
+    return false;
+  } else {
+    GenericServicePayload frame = (GenericServicePayload ) {
+      .version = GENERIC_SERVICE_VERSION,
+      .service_id = service_id,
+      .attribute_id = attribute_id,
+      .type = s_last_generic_service_type,
+      .error = success ? 0 : 1,
+      .length = length
+    };
+    prv_write_internal(SmartstrapProfileGenericService, (const uint8_t *)&frame, sizeof(frame),
+                      buffer, length, false);
+  }
   s_can_respond = false;
   return true;
 }
 
-void prv_notify_profile(SmartstrapProfile profile) {
-  s_callbacks.control(PebbleControlSetTxEnabled, true);
-  s_callbacks.control(PebbleControlWriteBreak, 0);
-  s_callbacks.control(PebbleControlWriteBreak, 0);
-  s_callbacks.control(PebbleControlWriteBreak, 0);
-  s_callbacks.control(PebbleControlSetTxEnabled, false);
-  prv_write_internal(profile, NULL, 0, true);
-}
-
-void pebble_notify(void) {
-  prv_notify_profile(SmartstrapProfileRawData);
-}
-
-void pebble_notify_attribute(uint16_t service_id, uint16_t attribute_id) {
-  if (!service_id) {
-    return;
-  }
+void pebble_notify(uint16_t service_id, uint16_t attribute_id) {
   s_notify_service = service_id;
-  s_notify_attribute = service_id;
-  prv_notify_profile(SmartstrapProfileGenericService);
+  s_notify_attribute = attribute_id;
+  SmartstrapProfile profile;
+  if (service_id == 0) {
+    profile = SmartstrapProfileRawData;
+  } else {
+    profile = SmartstrapProfileGenericService;
+  }
+  s_callback(SmartstrapCmdSetTxEnabled, true);
+  s_callback(SmartstrapCmdWriteBreak, 0);
+  s_callback(SmartstrapCmdWriteBreak, 0);
+  s_callback(SmartstrapCmdWriteBreak, 0);
+  s_callback(SmartstrapCmdSetTxEnabled, false);
+  prv_write_internal(profile, NULL, 0, NULL, 0, true);
 }
 
 bool pebble_is_connected(void) {

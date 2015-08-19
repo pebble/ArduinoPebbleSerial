@@ -13,9 +13,9 @@ static uint8_t *s_buffer;
 static size_t s_buffer_length;
 static uint8_t s_pin;
 
-static void prv_control_cb(PebbleControl cmd, uint32_t arg) {
+static void prv_cmd_cb(SmartstrapCmd cmd, uint32_t arg) {
   switch (cmd) {
-  case PebbleControlSetBaudRate:
+  case SmartstrapCmdSetBaudRate:
     if (s_is_hardware) {
       if (arg == 57600) {
         // The Arduino library intentionally uses bad prescalers for a baud rate of exactly 57600 so
@@ -29,7 +29,7 @@ static void prv_control_cb(PebbleControl cmd, uint32_t arg) {
     Serial.print("Setting baud rate to ");
     Serial.println(arg, DEC);
     break;
-  case PebbleControlSetTxEnabled:
+  case SmartstrapCmdSetTxEnabled:
     if (s_is_hardware) {
       if (!arg) {
         BOARD_SERIAL.flush();
@@ -37,14 +37,14 @@ static void prv_control_cb(PebbleControl cmd, uint32_t arg) {
       board_set_tx_enabled(arg);
     }
     break;
-  case PebbleControlWriteByte:
+  case SmartstrapCmdWriteByte:
     if (s_is_hardware) {
       BOARD_SERIAL.write((uint8_t)arg);
     } else {
       OneWireSoftSerial::write((uint8_t)arg);
     }
     break;
-  case PebbleControlWriteBreak:
+  case SmartstrapCmdWriteBreak:
     if (s_is_hardware) {
       board_set_even_parity(true);
       BOARD_SERIAL.write((uint8_t)0);
@@ -60,53 +60,26 @@ static void prv_control_cb(PebbleControl cmd, uint32_t arg) {
   }
 }
 
-static bool prv_handle_attribute(uint16_t service_id, uint16_t attribute_id, uint8_t *buffer,
-                                 uint16_t *length) {
-  if ((service_id == 0x0101) && (attribute_id == 0x0001)) {
-    // service discovery
-    uint16_t service_id = 0x1001;
-    memcpy(buffer, &service_id, sizeof(service_id));
-    *length = sizeof(service_id);
-    return true;
-  } else if ((service_id == 0x1001) && (attribute_id == 0x1001)) {
-    static uint32_t s_test_attr_data = 99999;
-    if (*length == 4) {
-      // read the previous value and write the new one
-      uint32_t new_value = 99999;
-      memcpy(&new_value, buffer, sizeof(new_value));
-      memcpy(buffer, &s_test_attr_data, sizeof(s_test_attr_data));
-      s_test_attr_data = new_value;
-      *length = sizeof(s_test_attr_data);
-    } else {
-      *length = 0;
-    }
-    return true;
-  }
-  return false;
-}
-
-static void prv_begin(uint8_t *buffer, size_t length) {
+static void prv_begin(uint8_t *buffer, size_t length, Baud baud,
+                      const uint16_t *services, uint8_t num_services) {
   s_buffer = buffer;
   s_buffer_length = length;
 
-  PebbleCallbacks callbacks = {
-    .control = prv_control_cb,
-    .attribute = prv_handle_attribute
-  };
-
-  pebble_init(callbacks, PebbleBaud57600);
+  pebble_init(prv_cmd_cb, (PebbleBaud)baud, services, num_services);
   pebble_prepare_for_read(s_buffer, s_buffer_length);
 }
 
-void ArduinoPebbleSerial::begin_software(uint8_t pin, uint8_t *buffer, size_t length) {
+void ArduinoPebbleSerial::begin_software(uint8_t pin, uint8_t *buffer, size_t length, Baud baud,
+                                         const uint16_t *services, uint8_t num_services) {
   s_is_hardware = false;
   s_pin = pin;
-  prv_begin(buffer, length);
+  prv_begin(buffer, length, baud, services, num_services);
 }
 
-void ArduinoPebbleSerial::begin_hardware(uint8_t *buffer, size_t length) {
+void ArduinoPebbleSerial::begin_hardware(uint8_t *buffer, size_t length, Baud baud,
+                                         const uint16_t *services, uint8_t num_services) {
   s_is_hardware = true;
-  prv_begin(buffer, length);
+  prv_begin(buffer, length, baud, services, num_services);
 }
 
 static int prv_available_bytes(void) {
@@ -125,9 +98,10 @@ static uint8_t prv_read_byte(void) {
   }
 }
 
-bool ArduinoPebbleSerial::feed(size_t *length, bool *is_read) {
+bool ArduinoPebbleSerial::feed(uint16_t *service_id, uint16_t *attribute_id, size_t *length,
+                               bool *is_read) {
   while (prv_available_bytes()) {
-    if (pebble_handle_byte(prv_read_byte(), length, is_read, millis())) {
+    if (pebble_handle_byte(prv_read_byte(), service_id, attribute_id, length, is_read, millis())) {
       // we have a full frame
       pebble_prepare_for_read(s_buffer, s_buffer_length);
       return true;
@@ -136,16 +110,13 @@ bool ArduinoPebbleSerial::feed(size_t *length, bool *is_read) {
   return false;
 }
 
-bool ArduinoPebbleSerial::write(const uint8_t *payload, size_t length) {
-  return pebble_write(payload, length);
-}
-
-void ArduinoPebbleSerial::notify(void) {
-  pebble_notify();
+bool ArduinoPebbleSerial::write(uint16_t service_id, uint16_t attribute_id, bool success,
+                                const uint8_t *payload, size_t length) {
+  return pebble_write(service_id, attribute_id, success, payload, length);
 }
 
 void ArduinoPebbleSerial::notify(uint16_t service_id, uint16_t attribute_id) {
-  pebble_notify_attribute(service_id, attribute_id);
+  pebble_notify(service_id, attribute_id);
 }
 
 bool ArduinoPebbleSerial::is_connected(void) {

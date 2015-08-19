@@ -8,11 +8,11 @@
 #define PEBBLE_MAX_PAYLOAD      80
 
 typedef enum {
-  PebbleControlSetBaudRate,
-  PebbleControlSetTxEnabled,
-  PebbleControlWriteByte,
-  PebbleControlWriteBreak
-} PebbleControl;
+  SmartstrapCmdSetBaudRate,
+  SmartstrapCmdSetTxEnabled,
+  SmartstrapCmdWriteByte,
+  SmartstrapCmdWriteBreak
+} SmartstrapCmd;
 
 typedef enum {
   PebbleBaud9600,
@@ -31,22 +31,28 @@ typedef enum {
   PebbleBaudInvalid
 } PebbleBaud;
 
+typedef enum {
+  SmartstrapResultOk = 0,
+  SmartstrapResultNotSupported
+} SmartstrapResult;
 
-typedef void (*PebbleControlCallback)(PebbleControl cmd, uint32_t arg);
-typedef bool (*PebbleHandleAttributeCallback)(uint16_t service_id, uint16_t attribute_id,
-                                              uint8_t *buffer, uint16_t *length);
+typedef enum {
+  SmartstrapGenericServiceTypeRead = 0,
+  SmartstrapGenericServiceTypeWrite = 1,
+  SmartstrapGenericServiceTypeWriteRead = 2
+} SmartstrapGenericServiceType;
 
-typedef struct {
-  PebbleControlCallback control;
-  PebbleHandleAttributeCallback attribute;
-} PebbleCallbacks;
 
-void pebble_init(PebbleCallbacks callbacks, PebbleBaud baud);
+typedef void (*SmartstrapCallback)(SmartstrapCmd cmd, uint32_t arg);
+
+void pebble_init(SmartstrapCallback callback, PebbleBaud baud, const uint16_t *services,
+                 uint8_t num_services);
 void pebble_prepare_for_read(uint8_t *buffer, size_t length);
-bool pebble_handle_byte(uint8_t data, size_t *length, bool *is_read, uint32_t time_ms);
-bool pebble_write(const uint8_t *payload, size_t length);
-void pebble_notify(void);
-void pebble_notify_attribute(uint16_t service_id, uint16_t attribute_id);
+bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_id, size_t *length,
+                        bool *is_read, uint32_t time_ms);
+bool pebble_write(uint16_t service_id, uint16_t attribute_id, bool success, const uint8_t *buffer,
+                  uint16_t length);
+void pebble_notify(uint16_t service_id, uint16_t attribute_id);
 bool pebble_is_connected(void);
 
 #endif // __PEBBLE_SERIAL_H__
