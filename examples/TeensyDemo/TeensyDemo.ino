@@ -2,9 +2,10 @@
 #include <ArduinoPebbleSerial.h>
 #include <Wire.h>
 
+#define ARRAY_LENGTH(arr) (sizeof(arr)/sizeof(arr[0]))
 #define PEBBLE_PIN        1
 STATIC_ASSERT_VALID_ONE_WIRE_SOFT_SERIAL_PIN(PEBBLE_PIN);
-static const uint16_t supported_services[] = {(uint16_t)0x1001};
+static const uint16_t supported_services[] = {0x0000, 0x1001};
 #define RECV_BUFFER_SIZE  200
 static uint8_t pebble_buffer[RECV_BUFFER_SIZE];
 static uint32_t connected_time = 0;
@@ -17,7 +18,7 @@ void setup() {
 
   // Setup the Pebble smartstrap connection using one wire software serial
   ArduinoPebbleSerial::begin_software(PEBBLE_PIN, pebble_buffer, RECV_BUFFER_SIZE, Baud57600,
-                                      supported_services, 1);
+                                      supported_services, ARRAY_LENGTH(supported_services));
 }
 
 void loop() {

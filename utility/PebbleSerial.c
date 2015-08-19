@@ -187,6 +187,26 @@ static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data1,
   s_callback(SmartstrapCmdSetTxEnabled, false);
 }
 
+static bool prv_supports_raw_data_profile(void) {
+  uint8_t i;
+  for (i = 0; i < s_num_supported_services; i++) {
+    if (s_supported_services[i] == 0x0000) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool prv_supports_generic_profile(void) {
+  uint8_t i;
+  for (i = 0; i < s_num_supported_services; i++) {
+    if (s_supported_services[i] > 0x0000) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static void prv_handle_link_control(uint8_t *buffer) {
   // we will re-use the buffer for the response
   LinkControlType type = buffer[1];
@@ -199,9 +219,16 @@ static void prv_handle_link_control(uint8_t *buffer) {
     }
     prv_write_internal(SmartstrapProfileLinkControl, buffer, 3, NULL, 0, false);
   } else if (type == LinkControlTypeProfiles) {
-    buffer[2] = SmartstrapProfileRawData;
-    buffer[3] = SmartstrapProfileGenericService;
-    prv_write_internal(SmartstrapProfileLinkControl, buffer, 4, NULL, 0, false);
+    uint16_t profiles[2];
+    uint8_t num_profiles = 0;
+    if (prv_supports_raw_data_profile()) {
+      profiles[num_profiles++] = SmartstrapProfileRawData;
+    }
+    if (prv_supports_generic_profile()) {
+      profiles[num_profiles++] = SmartstrapProfileGenericService;
+    }
+    prv_write_internal(SmartstrapProfileLinkControl, buffer, 2, (uint8_t *)profiles,
+                       num_profiles * sizeof(uint16_t), false);
   } else if (type == LinkControlTypeBaud) {
     buffer[2] = 0x05;
     prv_write_internal(SmartstrapProfileLinkControl, buffer, 3, NULL, 0, false);
@@ -224,13 +251,13 @@ static bool prv_handle_generic_service(GenericServicePayload *data) {
       uint16_t info[2] = {s_notify_service, s_notify_attribute};
       length = sizeof(info);
       s_can_respond = true;
-      pebble_write(service_id, attribute_id, true, (const uint8_t *)&info, length);
+      pebble_write(service_id, attribute_id, true, (uint8_t *)&info, length);
     }
     return true;
   } else if ((service_id == 0x0101) && (attribute_id == 0x0001)) {
     // this is a service discovery frame
     s_can_respond = true;
-    pebble_write(service_id, attribute_id, true, (const uint8_t *)s_supported_services,
+    pebble_write(service_id, attribute_id, true, (uint8_t *)s_supported_services,
                  s_num_supported_services * sizeof(uint16_t));
     return true;
   }
@@ -390,8 +417,8 @@ bool pebble_write(uint16_t service_id, uint16_t attribute_id, bool success, cons
       .error = success ? 0 : 1,
       .length = length
     };
-    prv_write_internal(SmartstrapProfileGenericService, (const uint8_t *)&frame, sizeof(frame),
-                      buffer, length, false);
+    prv_write_internal(SmartstrapProfileGenericService, (uint8_t *)&frame, sizeof(frame), buffer,
+                       length, false);
   }
   s_can_respond = false;
   return true;
