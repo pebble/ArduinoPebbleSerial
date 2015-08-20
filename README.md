@@ -1,45 +1,15 @@
 # ArduinoPebbleSerial
 
-This is an Arduino library for communicating with Pebble Time via the Smartstrap port.
+This is an Arduino library for communicating with Pebble Time via the Smartstrap port. For more
+information, see the
+[Smartstrap guide on the Pebble developer site](https://developer.getpebble.com/guides/hardware/)
 
 ## Hardware Configuration
 
-The following boards and pin configurations are currently supported. The two pins listed must be
-tied together and connected to the Smartstrap data pin.
-* Arduino Uno (ATmega328p) - Serial0 - pins 0 and 1
-* Arduino Mega 2560 (ATmega2560) - Serial1 - pins 18 and 19
-* Xadow Main Board (ATmega32u4) - Serial1 - pins 0 and 1
-
-To add support for more boards, see the top of the ArduinoPebbleSerial.cpp file.
-
-## Initialization ##
-
-	void ArduinoPebbleSerial::begin(uint8_t *buffer, size_t length);
-This method starts the underlying serial connection. The caller must pass a buffer to be used by the
-library as a receive buffer as well as its length.
-
-## Feeding ##
-
-	bool ArduinoPebbleSerial::feed(size_t *length, bool *is_read);
-This method must be called continously in order to allow the library to process new bytes which have
-come in over the serial port. It will return true when a complete frame has been received, in which
-case it will set the passed `length` and `is_read` parameters with the length of the received
-message and whether it was a read request or not respectively.
-
-## Sending Responses ##
-
-	bool ArduinoPebbleSerial::write(const uint8_t *payload, size_t length);
-This method should only be called (once) after a frame with `is_read` set to true was received. The
-specified payload of the specified length will be sent to the watch. Returns whether or not it was
-send successfully.
-
-## Other APIs ##
-
-	bool ArduinoPebbleSerial::is_connected(void);
-Returns true/false if we are currently connected to the watch.
-
-	void ArduinoPebbleSerial::notify(void);
-Sends a notification to the watch. Notifications can be used to tell the watch about an event.
+This Arduino library has both a software serial and hardware serial mode. The hardware serial mode
+requires an external open-drain buffer as detailed in the smartstrap guide linked above, and also
+requires board-specific support (see utility/board.h). The software serial mode requires only
+a pull-up resistor and supports any AVR-based microcontroller.
 
 ## Examples ##
 
@@ -47,8 +17,6 @@ There a few example Arduino projects and an example Pebble app provided with lib
 folder.
 * examples/PebbleApp/ - A Pebble app to use with the TeensyDemo and XadowDemo examples
 * examples/TeensyDemo/ - A simple example sketch for the Teensy 2.0 board which will toggle the LED
-when data is received and send the uptime to the watch
-* examples/XadowDemo/ - A simple example sketch for the Xadow board which will toggle the LED when
-data is received and send the uptime to the watch
-* examples/XadowNES/ - An Arduino sketch for the Xadow board which reads the button input from an
-NES controller and sends it to the watch
+when data is received and send the uptime to the watch, among other things. This demo runs with the
+PebbleApp example and uses pin B1 (arduino pin 1) on the Teensy 2.0 board with the software serial
+mode of the library.

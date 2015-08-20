@@ -34,18 +34,6 @@ static inline void board_set_even_parity(bool enabled) {
     bitClear(UCSR1C, UPM11);
   }
 }
-#if 0
-static inline void board_debug_pin_init(void) {
-  bitSet(DDRB, 7);
-}
-static inline void board_debug_pin_set(bool set) {
-  if (set) {
-    bitSet(PORTB, 7);
-  } else {
-    bitClear(PORTB, 7);
-  }
-}
-#endif
 
 #elif defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__)
 #define BOARD_SERIAL Serial
