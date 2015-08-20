@@ -120,15 +120,11 @@ static void prv_read_raw(void) {
 static void prv_send_request(void *context) {
   SmartstrapResult result;
   prv_write_read_test_attr();
-#if 0
   if (rand() % 2) {
     prv_write_raw();
   } else {
     prv_read_raw();
   }
-#else
-  prv_read_raw();
-#endif
   app_timer_register(900, prv_send_request, NULL);
 }
 

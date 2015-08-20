@@ -30,6 +30,7 @@ static volatile uint8_t *s_port_output_register = 0;
 static volatile uint8_t *s_port_input_register = 0;
 static volatile uint8_t *s_pcint_mask_reg = 0;
 static uint8_t s_pcint_mask_value = 0;
+static bool s_tx_enabled = false;
 
 
 // Helper macros
@@ -165,6 +166,7 @@ void OneWireSoftSerial::begin(uint8_t pin, long speed) {
   if (!digitalPinToPCICR(s_pin)) {
     return;
   }
+  pinMode(2, OUTPUT);
 
   s_rx_delay_centering = s_rx_delay_intrabit = s_rx_delay_stopbit = s_tx_delay = 0;
 
@@ -249,7 +251,29 @@ int OneWireSoftSerial::available() {
   return (s_receive_buffer_tail + _SS_MAX_RX_BUFF - s_receive_buffer_head) % _SS_MAX_RX_BUFF;
 }
 
+void OneWireSoftSerial::set_tx_enabled(bool enabled) {
+  if (s_tx_enabled == enabled) {
+    return;
+  }
+  static uint8_t s_old_sreg = 0;
+  if (enabled) {
+    s_old_sreg = SREG;
+    cli();
+    prv_set_rx_int_msk(false);
+    prv_set_tx_enabled(true);
+  } else {
+    prv_set_tx_enabled(false);
+    prv_set_rx_int_msk(true);
+    SREG = s_old_sreg;
+  }
+  s_tx_enabled = enabled;
+}
+
 void OneWireSoftSerial::write(uint8_t b, bool is_break /* = false */) {
+  if (!s_tx_enabled) {
+    return;
+  }
+
   // By declaring these as local variables, the compiler will put them
   // in registers _before_ disabling interrupts and entering the
   // critical timing sections below, which makes it a lot easier to
@@ -258,13 +282,7 @@ void OneWireSoftSerial::write(uint8_t b, bool is_break /* = false */) {
   uint8_t reg_mask = s_bit_mask;
   uint8_t inv_mask = ~s_bit_mask;
   uint16_t delay = s_tx_delay;
-  uint8_t oldSREG = SREG;
   uint8_t num_bits = is_break ? 9 : 8;
-
-  // turn off interrupts and set the pin to TX
-  cli();
-  prv_set_rx_int_msk(false);
-  prv_set_tx_enabled(true);
 
   // Write the start bit
   *reg &= inv_mask;
@@ -285,9 +303,4 @@ void OneWireSoftSerial::write(uint8_t b, bool is_break /* = false */) {
   // restore pin to natural state
   *reg |= reg_mask;
   TUNED_DELAY(s_tx_delay);
-
-  // set the pin to RX and turn interrupts back on
-  prv_set_tx_enabled(false);
-  prv_set_rx_int_msk(true);
-  SREG = oldSREG;
 }

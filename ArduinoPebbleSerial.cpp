@@ -35,6 +35,8 @@ static void prv_cmd_cb(SmartstrapCmd cmd, uint32_t arg) {
         BOARD_SERIAL.flush();
       }
       board_set_tx_enabled(arg);
+    } else {
+      OneWireSoftSerial::set_tx_enabled(arg);
     }
     break;
   case SmartstrapCmdWriteByte:

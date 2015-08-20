@@ -21,6 +21,7 @@ public:
   // public methods
   static void begin(uint8_t pin, long speed);
   static int available();
+  static void set_tx_enabled(bool enabled);
   static void write(uint8_t byte, bool is_break = false);
   static int read();
 };
