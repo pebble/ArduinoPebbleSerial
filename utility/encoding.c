@@ -1,34 +1,34 @@
-#include "hdlc.h"
+#include "encoding.h"
 
-void hdlc_streaming_decode_reset(HdlcStreamingContext *ctx) {
+void encoding_streaming_decode_reset(EncodingStreamingContext *ctx) {
   ctx->escape = false;
 }
 
-bool hdlc_streaming_decode(HdlcStreamingContext *ctx, uint8_t *data, bool *should_store,
-                           bool *hdlc_error) {
+bool encoding_streaming_decode(EncodingStreamingContext *ctx, uint8_t *data, bool *should_store,
+                           bool *encoding_error) {
   bool is_complete = false;
-  *hdlc_error = false;
+  *encoding_error = false;
   *should_store = false;
-  if (*data == HDLC_FLAG) {
+  if (*data == ENCODING_FLAG) {
     if (ctx->escape) {
       // extra escape character before flag
       ctx->escape = false;
-      *hdlc_error = true;
+      *encoding_error = true;
     }
     // we've reached the end of the frame
     is_complete = true;
-  } else if (*data == HDLC_ESCAPE) {
+  } else if (*data == ENCODING_ESCAPE) {
     if (ctx->escape) {
       // invalid sequence
       ctx->escape = false;
-      *hdlc_error = true;
+      *encoding_error = true;
     } else {
       // ignore this character and escape the next one
       ctx->escape = true;
     }
   } else {
     if (ctx->escape) {
-      *data ^= HDLC_ESCAPE_MASK;
+      *data ^= ENCODING_ESCAPE_MASK;
       ctx->escape = false;
     }
     *should_store = true;
@@ -37,9 +37,9 @@ bool hdlc_streaming_decode(HdlcStreamingContext *ctx, uint8_t *data, bool *shoul
   return is_complete;
 }
 
-bool hdlc_encode(uint8_t *data) {
-  if (*data == HDLC_FLAG || *data == HDLC_ESCAPE) {
-    *data ^= HDLC_ESCAPE_MASK;
+bool encoding_encode(uint8_t *data) {
+  if (*data == ENCODING_FLAG || *data == ENCODING_ESCAPE) {
+    *data ^= ENCODING_ESCAPE_MASK;
     return true;
   }
   return false;

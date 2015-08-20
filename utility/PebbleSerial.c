@@ -3,7 +3,7 @@
 #include "PebbleSerial.h"
 
 #include "crc.h"
-#include "hdlc.h"
+#include "encoding.h"
 #include "board.h"
 
 #include <util/delay_basic.h>
@@ -71,7 +71,7 @@ typedef struct {
   bool should_drop;
   bool read_ready;
   bool is_read;
-  HdlcStreamingContext hdlc_ctx;
+  EncodingStreamingContext encoding_ctx;
 } PebbleFrameInfo;
 
 typedef struct __attribute__((packed)) {
@@ -130,13 +130,13 @@ void pebble_prepare_for_read(uint8_t *buffer, size_t length) {
 }
 
 static void prv_send_flag(void) {
-  s_callback(SmartstrapCmdWriteByte, HDLC_FLAG);
+  s_callback(SmartstrapCmdWriteByte, ENCODING_FLAG);
 }
 
 static void prv_send_byte(uint8_t data, uint8_t *parity) {
   crc8_calculate_byte_streaming(data, parity);
-  if (hdlc_encode(&data)) {
-    s_callback(SmartstrapCmdWriteByte, HDLC_ESCAPE);
+  if (encoding_encode(&data)) {
+    s_callback(SmartstrapCmdWriteByte, ENCODING_ESCAPE);
   }
   s_callback(SmartstrapCmdWriteByte, data);
 }
@@ -326,9 +326,10 @@ bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_
     return false;
   }
 
-  bool hdlc_err, should_store = false;
-  bool is_complete = hdlc_streaming_decode(&s_frame.hdlc_ctx, &data, &should_store, &hdlc_err);
-  if (hdlc_err) {
+  bool encoding_err, should_store = false;
+  bool is_complete = encoding_streaming_decode(&s_frame.encoding_ctx, &data, &should_store,
+                                               &encoding_err);
+  if (encoding_err) {
     s_frame.should_drop = true;
   } else if (is_complete) {
     prv_frame_validate();
@@ -337,8 +338,8 @@ bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_
   }
 
   if (s_frame.should_drop || is_complete) {
-    // prepare the HDLC context for the next frame
-    hdlc_streaming_decode_reset(&s_frame.hdlc_ctx);
+    // prepare the encoding context for the next frame
+    encoding_streaming_decode_reset(&s_frame.encoding_ctx);
   }
 
   if (is_complete) {
