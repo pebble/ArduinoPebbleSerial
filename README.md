@@ -11,6 +11,14 @@ requires an external open-drain buffer as detailed in the smartstrap guide linke
 requires board-specific support (see utility/board.h). The software serial mode requires only
 a pull-up resistor and supports any AVR-based microcontroller.
 
+## Tested Boards ##
+
+| Board Name      | Tested in Software Mode | Tested in Hardware Mode                       |
+| --------------- | ----------------------- | --------------------------------------------- |
+| Teensy 2.0      | yes                     | yes (RX/TX pins)                              |
+| Arduino Uno     | yes                     | no                                            |
+| Particle Photon | no                      | yes (RX/TX pins with external buffer circuit) |
+
 ## Examples ##
 
 There a few example Arduino projects and an example Pebble app provided with library in the examples
