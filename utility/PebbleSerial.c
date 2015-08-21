@@ -84,7 +84,7 @@ typedef struct __attribute__((packed)) {
   uint8_t data[];
 } GenericServicePayload;
 
-static SmartstrapGenericServiceType s_last_generic_service_type;
+static SmartstrapRequestType s_last_generic_service_type;
 static uint32_t s_last_message_time = 0;
 static PebbleFrameInfo s_frame;
 static SmartstrapCallback s_callback;
@@ -141,7 +141,7 @@ static void prv_send_byte(uint8_t data, uint8_t *parity) {
   s_callback(SmartstrapCmdWriteByte, data);
 }
 
-static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data1, size_t length1,
+static void prv_write_internal(SmartstrapProfile profile, const uint8_t *data1, size_t length1,
                                const uint8_t *data2, size_t length2, bool is_notify) {
   uint8_t parity = 0;
 
@@ -154,7 +154,7 @@ static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data1,
   // send version
   prv_send_byte(PROTOCOL_VERSION, &parity);
 
-  // send header flags
+  // send header flags (currently just hard-coded)
   if (is_notify) {
     prv_send_byte(0x04, &parity);
   } else {
@@ -164,8 +164,8 @@ static void prv_write_internal(SmartstrapProfile protocol, const uint8_t *data1,
   prv_send_byte(0, &parity);
   prv_send_byte(0, &parity);
 
-  // send profile
-  prv_send_byte(protocol, &parity);
+  // send profile (currently well within a single byte)
+  prv_send_byte(profile, &parity);
   prv_send_byte(0, &parity);
 
   // send data
@@ -320,7 +320,7 @@ static void prv_frame_validate(void) {
 }
 
 bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_id, size_t *length,
-                        bool *is_read, uint32_t time) {
+                        SmartstrapRequestType *type, uint32_t time) {
   if (!s_frame.read_ready || s_frame.should_drop) {
     // we shouldn't be reading new data
     return false;
@@ -367,14 +367,22 @@ bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_
         *service_id = header.service_id;
         *attribute_id = header.attribute_id;
         *length = header.length;
-        *is_read = true;
+        *type = header.type;
       }
     } else {
       give_to_user = true;
       *service_id = 0;
       *attribute_id = 0;
       *length = s_frame.length - FRAME_MIN_LENGTH;
-      *is_read = FLAGS_GET(s_frame.header.flags, FLAGS_IS_READ_MASK, FLAGS_IS_READ_OFFSET);
+      if (FLAGS_GET(s_frame.header.flags, FLAGS_IS_READ_MASK, FLAGS_IS_READ_OFFSET)) {
+        if (*length) {
+          *type = SmartstrapRequestTypeWriteRead;
+        } else {
+          *type = SmartstrapRequestTypeRead;
+        }
+      } else {
+        *type = SmartstrapRequestTypeWrite;
+      }
     }
     if (give_to_user) {
       s_last_message_time = time;

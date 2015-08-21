@@ -24,15 +24,20 @@ typedef enum {
   Baud460800,
 } Baud;
 
+typedef enum {
+  RequestTypeRead,
+  RequestTypeWrite,
+  RequestTypeWriteRead
+} RequestType;
+
 class ArduinoPebbleSerial {
 public:
   static void begin_software(uint8_t pin, uint8_t *buffer, size_t length, Baud baud,
                              const uint16_t *services, uint8_t num_services);
   static void begin_hardware(uint8_t *buffer, size_t length, Baud baud, const uint16_t *services,
                              uint8_t num_services);
-  static bool feed(uint16_t *service_id, uint16_t *attribute_id, size_t *length, bool *is_read);
-  static bool write(uint16_t service_id, uint16_t attribute_id, bool success,
-                    const uint8_t *payload, size_t length);
+  static bool feed(uint16_t *service_id, uint16_t *attribute_id, size_t *length, RequestType *type);
+  static bool write(bool success, const uint8_t *payload, size_t length);
   static void notify(uint16_t service_id, uint16_t attribute_id);
   static bool is_connected(void);
 };

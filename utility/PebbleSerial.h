@@ -37,10 +37,10 @@ typedef enum {
 } SmartstrapResult;
 
 typedef enum {
-  SmartstrapGenericServiceTypeRead = 0,
-  SmartstrapGenericServiceTypeWrite = 1,
-  SmartstrapGenericServiceTypeWriteRead = 2
-} SmartstrapGenericServiceType;
+  SmartstrapRequestTypeRead = 0,
+  SmartstrapRequestTypeWrite = 1,
+  SmartstrapRequestTypeWriteRead = 2
+} SmartstrapRequestType;
 
 
 typedef void (*SmartstrapCallback)(SmartstrapCmd cmd, uint32_t arg);
@@ -49,7 +49,7 @@ void pebble_init(SmartstrapCallback callback, PebbleBaud baud, const uint16_t *s
                  uint8_t num_services);
 void pebble_prepare_for_read(uint8_t *buffer, size_t length);
 bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_id, size_t *length,
-                        bool *is_read, uint32_t time_ms);
+                        SmartstrapRequestType *type, uint32_t time_ms);
 bool pebble_write(uint16_t service_id, uint16_t attribute_id, bool success, const uint8_t *buffer,
                   uint16_t length);
 void pebble_notify(uint16_t service_id, uint16_t attribute_id);

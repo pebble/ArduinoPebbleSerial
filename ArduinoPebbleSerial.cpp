@@ -100,21 +100,39 @@ static uint8_t prv_read_byte(void) {
   }
 }
 
+static uint16_t s_current_service_id;
+static uint16_t s_current_attribute_id;
 bool ArduinoPebbleSerial::feed(uint16_t *service_id, uint16_t *attribute_id, size_t *length,
-                               bool *is_read) {
+                               RequestType *type) {
+  SmartstrapRequestType request_type;
   while (prv_available_bytes()) {
-    if (pebble_handle_byte(prv_read_byte(), service_id, attribute_id, length, is_read, millis())) {
+    if (pebble_handle_byte(prv_read_byte(), service_id, attribute_id, length, &request_type,
+                           millis())) {
       // we have a full frame
       pebble_prepare_for_read(s_buffer, s_buffer_length);
+      s_current_service_id = *service_id;
+      s_current_attribute_id = *attribute_id;
+      switch (request_type) {
+      case SmartstrapRequestTypeRead:
+        *type = RequestTypeRead;
+        break;
+      case SmartstrapRequestTypeWrite:
+        *type = RequestTypeWrite;
+        break;
+      case SmartstrapRequestTypeWriteRead:
+        *type = RequestTypeWriteRead;
+        break;
+      default:
+        break;
+      }
       return true;
     }
   }
   return false;
 }
 
-bool ArduinoPebbleSerial::write(uint16_t service_id, uint16_t attribute_id, bool success,
-                                const uint8_t *payload, size_t length) {
-  return pebble_write(service_id, attribute_id, success, payload, length);
+bool ArduinoPebbleSerial::write(bool success, const uint8_t *payload, size_t length) {
+  return pebble_write(s_current_service_id, s_current_attribute_id, success, payload, length);
 }
 
 void ArduinoPebbleSerial::notify(uint16_t service_id, uint16_t attribute_id) {

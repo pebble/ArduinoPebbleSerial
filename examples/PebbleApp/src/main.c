@@ -100,7 +100,7 @@ static void prv_write_raw(void) {
   uint8_t num = rand() % 200;
   memcpy(buffer, &num, 1);
 
-  result = smartstrap_attribute_end_write(s_raw_attribute, 100, false);
+  result = smartstrap_attribute_end_write(s_raw_attribute, sizeof(num), false);
   if (result != SmartstrapResultOk) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "Write of s_raw_attribute failed with result %d", result);
   }

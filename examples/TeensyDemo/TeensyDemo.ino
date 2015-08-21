@@ -32,21 +32,21 @@ void loop() {
 
   // Let the ArduinoPebbleSerial code do its processing
   size_t length;
-  bool is_read;
   uint16_t service_id;
   uint16_t attribute_id;
-  if (ArduinoPebbleSerial::feed(&service_id, &attribute_id, &length, &is_read)) {
+  RequestType type;
+  if (ArduinoPebbleSerial::feed(&service_id, &attribute_id, &length, &type)) {
     if ((service_id == 0) && (attribute_id == 0)) {
       // we have a raw data frame to process
       static bool led_status = false;
       led_status = !led_status;
       digitalWrite(PIN_D6, led_status);
       Serial.println("READ");
-      if (is_read) {
+      if (type == RequestTypeRead) {
         // send a response to the Pebble - reuse the same buffer for the response
         uint32_t current_time = millis();
         memcpy(pebble_buffer, &current_time, 4);
-        ArduinoPebbleSerial::write(0, 0, true, pebble_buffer, 4);
+        ArduinoPebbleSerial::write(true, pebble_buffer, 4);
         Serial.println("WRITE");
       } else {
         Serial.print("GOT RAW WRITE: ");
@@ -58,13 +58,13 @@ void loop() {
         // read the previous value and write the new one
         uint32_t old_value = s_test_attr_data;
         memcpy(&s_test_attr_data, pebble_buffer, sizeof(s_test_attr_data));
-        ArduinoPebbleSerial::write(service_id, attribute_id, true, (const uint8_t *)&old_value,
+        ArduinoPebbleSerial::write(true, (const uint8_t *)&old_value,
                                      sizeof(old_value));
       } else {
-        ArduinoPebbleSerial::write(service_id, attribute_id, true, NULL, 0);
+        ArduinoPebbleSerial::write(true, NULL, 0);
       }
     } else {
-      ArduinoPebbleSerial::write(service_id, attribute_id, false, NULL, 0);
+      ArduinoPebbleSerial::write(false, NULL, 0);
     }
   }
 
