@@ -17,7 +17,6 @@ a pull-up resistor and supports any AVR-based microcontroller.
 | --------------- | ----------------------- | --------------------------------------------- |
 | Teensy 2.0      | yes                     | yes (RX/TX pins)                              |
 | Arduino Uno     | yes                     | no                                            |
-| Particle Photon | no                      | yes (RX/TX pins with external buffer circuit) |
 
 ## Examples ##
 
