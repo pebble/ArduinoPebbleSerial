@@ -362,11 +362,11 @@ bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_
       // prepare for the next frame
       pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
     } else if (s_frame.header.profile == SmartstrapProfileGenericService) {
-      s_last_message_time = time;
       GenericServicePayload header = *(GenericServicePayload *)s_frame.payload;
       memmove(s_frame.payload, &s_frame.payload[sizeof(header)], header.length);
       // handle this generic service frame
       if (prv_handle_generic_service(&header)) {
+        s_last_message_time = time;
         // we handled it, so prepare for the next frame
         pebble_prepare_for_read(s_frame.payload, s_frame.max_payload_length);
       } else {
@@ -408,7 +408,6 @@ bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_
   } else if (time - s_last_message_time > 10000) {
     // haven't received a valid frame in over 10 seconds so reset the baudrate
     prv_set_baud(PebbleBaud9600);
-    s_last_message_time = time;
     s_connected = false;
   }
 
@@ -459,6 +458,10 @@ void pebble_notify(uint16_t service_id, uint16_t attribute_id) {
   prv_write_internal(profile, NULL, 0, NULL, 0, true);
 }
 
-bool pebble_is_connected(void) {
+bool pebble_is_connected(uint32_t time) {
+  if (time - s_last_message_time > 10000) {
+    prv_set_baud(PebbleBaud9600);
+    s_connected = false;
+  }
   return s_connected;
 }

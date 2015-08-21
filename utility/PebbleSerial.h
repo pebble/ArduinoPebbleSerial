@@ -52,6 +52,6 @@ bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_
                         SmartstrapRequestType *type, uint32_t time_ms);
 bool pebble_write(bool success, const uint8_t *buffer, uint16_t length);
 void pebble_notify(uint16_t service_id, uint16_t attribute_id);
-bool pebble_is_connected(void);
+bool pebble_is_connected(uint32_t time);
 
 #endif // __PEBBLE_SERIAL_H__

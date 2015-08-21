@@ -134,5 +134,5 @@ void ArduinoPebbleSerial::notify(uint16_t service_id, uint16_t attribute_id) {
 }
 
 bool ArduinoPebbleSerial::is_connected(void) {
-  return pebble_is_connected();
+  return pebble_is_connected(millis());
 }
