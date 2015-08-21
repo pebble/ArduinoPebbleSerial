@@ -50,8 +50,7 @@ void pebble_init(SmartstrapCallback callback, PebbleBaud baud, const uint16_t *s
 void pebble_prepare_for_read(uint8_t *buffer, size_t length);
 bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_id, size_t *length,
                         SmartstrapRequestType *type, uint32_t time_ms);
-bool pebble_write(uint16_t service_id, uint16_t attribute_id, bool success, const uint8_t *buffer,
-                  uint16_t length);
+bool pebble_write(bool success, const uint8_t *buffer, uint16_t length);
 void pebble_notify(uint16_t service_id, uint16_t attribute_id);
 bool pebble_is_connected(void);
 

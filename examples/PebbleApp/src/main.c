@@ -80,32 +80,6 @@ static void prv_write_read_test_attr(void) {
   }
 }
 
-static void prv_write_raw(void) {
-  SmartstrapResult result;
-  if (!smartstrap_service_is_available(smartstrap_attribute_get_service_id(s_raw_attribute))) {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "s_raw_attribute is not available");
-    return;
-  }
-
-  // get the write buffer
-  uint8_t *buffer = NULL;
-  size_t length = 0;
-  result = smartstrap_attribute_begin_write(s_raw_attribute, &buffer, &length);
-  if (result != SmartstrapResultOk) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Write of s_raw_attribute failed with result %d", result);
-    return;
-  }
-
-  // write the data into the buffer
-  uint8_t num = rand() % 200;
-  memcpy(buffer, &num, 1);
-
-  result = smartstrap_attribute_end_write(s_raw_attribute, sizeof(num), false);
-  if (result != SmartstrapResultOk) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Write of s_raw_attribute failed with result %d", result);
-  }
-}
-
 static void prv_read_raw(void) {
   if (!smartstrap_service_is_available(smartstrap_attribute_get_service_id(s_raw_attribute))) {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "s_raw_attribute is not available");
@@ -118,13 +92,8 @@ static void prv_read_raw(void) {
 }
 
 static void prv_send_request(void *context) {
-  SmartstrapResult result;
   prv_write_read_test_attr();
-  if (rand() % 2) {
-    prv_write_raw();
-  } else {
-    prv_read_raw();
-  }
+  prv_read_raw();
   app_timer_register(900, prv_send_request, NULL);
 }
 

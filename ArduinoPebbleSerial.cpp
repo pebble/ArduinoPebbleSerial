@@ -26,8 +26,6 @@ static void prv_cmd_cb(SmartstrapCmd cmd, uint32_t arg) {
     } else {
       OneWireSoftSerial::begin(s_pin, arg);
     }
-    Serial.print("Setting baud rate to ");
-    Serial.println(arg, DEC);
     break;
   case SmartstrapCmdSetTxEnabled:
     if (s_is_hardware) {
@@ -100,8 +98,6 @@ static uint8_t prv_read_byte(void) {
   }
 }
 
-static uint16_t s_current_service_id;
-static uint16_t s_current_attribute_id;
 bool ArduinoPebbleSerial::feed(uint16_t *service_id, uint16_t *attribute_id, size_t *length,
                                RequestType *type) {
   SmartstrapRequestType request_type;
@@ -110,8 +106,6 @@ bool ArduinoPebbleSerial::feed(uint16_t *service_id, uint16_t *attribute_id, siz
                            millis())) {
       // we have a full frame
       pebble_prepare_for_read(s_buffer, s_buffer_length);
-      s_current_service_id = *service_id;
-      s_current_attribute_id = *attribute_id;
       switch (request_type) {
       case SmartstrapRequestTypeRead:
         *type = RequestTypeRead;
@@ -132,7 +126,7 @@ bool ArduinoPebbleSerial::feed(uint16_t *service_id, uint16_t *attribute_id, siz
 }
 
 bool ArduinoPebbleSerial::write(bool success, const uint8_t *payload, size_t length) {
-  return pebble_write(s_current_service_id, s_current_attribute_id, success, payload, length);
+  return pebble_write(success, payload, length);
 }
 
 void ArduinoPebbleSerial::notify(uint16_t service_id, uint16_t attribute_id) {

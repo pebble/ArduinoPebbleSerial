@@ -89,7 +89,6 @@ static uint32_t s_last_message_time = 0;
 static PebbleFrameInfo s_frame;
 static SmartstrapCallback s_callback;
 static bool s_connected;
-static bool s_can_respond;
 static PebbleBaud s_current_baud = PebbleBaudInvalid;
 static PebbleBaud s_target_baud = PebbleBaudInvalid;
 static const uint32_t BAUDS[] = { 9600, 14400, 19200, 28800, 38400, 57600, 67500, 115200, 125000,
@@ -100,6 +99,11 @@ static uint16_t s_notify_service;
 static uint16_t s_notify_attribute;
 static const uint16_t *s_supported_services;
 static uint8_t s_num_supported_services;
+static struct {
+  bool can_respond;
+  uint16_t service_id;
+  uint16_t attribute_id;
+} s_pending_response;
 
 
 void prv_set_baud(PebbleBaud baud) {
@@ -250,14 +254,18 @@ static bool prv_handle_generic_service(GenericServicePayload *data) {
     if (s_notify_service) {
       uint16_t info[2] = {s_notify_service, s_notify_attribute};
       length = sizeof(info);
-      s_can_respond = true;
-      pebble_write(service_id, attribute_id, true, (uint8_t *)&info, length);
+      s_pending_response.can_respond = true;
+      s_pending_response.service_id = service_id;
+      s_pending_response.attribute_id = attribute_id;
+      pebble_write(true, (uint8_t *)&info, length);
     }
     return true;
   } else if ((service_id == 0x0101) && (attribute_id == 0x0001)) {
     // this is a service discovery frame
-    s_can_respond = true;
-    pebble_write(service_id, attribute_id, true, (uint8_t *)s_supported_services,
+    s_pending_response.can_respond = true;
+    s_pending_response.service_id = service_id;
+    s_pending_response.attribute_id = attribute_id;
+    pebble_write(true, (uint8_t *)s_supported_services,
                  s_num_supported_services * sizeof(uint16_t));
     return true;
   }
@@ -387,7 +395,9 @@ bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_
     if (give_to_user) {
       s_last_message_time = time;
       s_frame.read_ready = false;
-      s_can_respond = true;
+      s_pending_response.service_id = *service_id;
+      s_pending_response.attribute_id = *attribute_id;
+      s_pending_response.can_respond = true;
       return true;
     }
   }
@@ -405,23 +415,22 @@ bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_
   return false;
 }
 
-bool pebble_write(uint16_t service_id, uint16_t attribute_id, bool success, const uint8_t *buffer,
-                  uint16_t length) {
-  if (!s_can_respond) {
+bool pebble_write(bool success, const uint8_t *buffer, uint16_t length) {
+  if (!s_pending_response.can_respond) {
     return false;
   }
-  if (service_id == 0) {
-    if (attribute_id != 0) {
+  if (s_pending_response.service_id == 0) {
+    if (s_pending_response.attribute_id != 0) {
       return false;
     }
     prv_write_internal(SmartstrapProfileRawData, buffer, length, NULL, 0, false);
-  } else if (service_id < 0x00FF) {
+  } else if (s_pending_response.service_id < 0x00FF) {
     return false;
   } else {
     GenericServicePayload frame = (GenericServicePayload ) {
       .version = GENERIC_SERVICE_VERSION,
-      .service_id = service_id,
-      .attribute_id = attribute_id,
+      .service_id = s_pending_response.service_id,
+      .attribute_id = s_pending_response.attribute_id,
       .type = s_last_generic_service_type,
       .error = success ? 0 : 1,
       .length = length
@@ -429,7 +438,7 @@ bool pebble_write(uint16_t service_id, uint16_t attribute_id, bool success, cons
     prv_write_internal(SmartstrapProfileGenericService, (uint8_t *)&frame, sizeof(frame), buffer,
                        length, false);
   }
-  s_can_respond = false;
+  s_pending_response.can_respond = false;
   return true;
 }
 
