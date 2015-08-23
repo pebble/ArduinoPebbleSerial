@@ -1,6 +1,4 @@
-#include <Arduino.h>
 #include <ArduinoPebbleSerial.h>
-#include <Wire.h>
 
 #define ARRAY_LENGTH(arr) (sizeof(arr)/sizeof(arr[0]))
 #define PEBBLE_PIN        1

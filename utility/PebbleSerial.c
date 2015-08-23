@@ -6,10 +6,6 @@
 #include "encoding.h"
 #include "board.h"
 
-#include <util/delay_basic.h>
-
-#define UNLIKELY(x) (__builtin_expect(!!(x), 0))
-
 #define PROTOCOL_VERSION              1
 #define GENERIC_SERVICE_VERSION       1
 
@@ -93,8 +89,6 @@ static PebbleBaud s_current_baud = PebbleBaudInvalid;
 static PebbleBaud s_target_baud = PebbleBaudInvalid;
 static const uint32_t BAUDS[] = { 9600, 14400, 19200, 28800, 38400, 57600, 67500, 115200, 125000,
                                   230400, 250000, 460800 };
-_Static_assert((sizeof(BAUDS) / sizeof(BAUDS[0])) == PebbleBaudInvalid,
-               "bauds table doesn't match up with PebbleBaud enum");
 static uint16_t s_notify_service;
 static uint16_t s_notify_attribute;
 static const uint16_t *s_supported_services;

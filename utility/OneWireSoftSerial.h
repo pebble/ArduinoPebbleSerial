@@ -21,8 +21,12 @@
 
 #include <inttypes.h>
 
+#if ARDUINO > 1000
 #define STATIC_ASSERT_VALID_ONE_WIRE_SOFT_SERIAL_PIN(pin) \
     static_assert(digitalPinToPCICR(pin) != NULL, "This pin does not support PC interrupts!")
+#else
+#define STATIC_ASSERT_VALID_ONE_WIRE_SOFT_SERIAL_PIN(pin)
+#endif
 #define _SS_MAX_RX_BUFF 64 // RX buffer size
 
 class OneWireSoftSerial
