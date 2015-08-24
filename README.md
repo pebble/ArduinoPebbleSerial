@@ -22,7 +22,7 @@ a pull-up resistor and supports any AVR-based microcontroller.
 
 ## Examples ##
 
-There a few example Arduino projects and an example Pebble app provided with library in the examples
+There an example Arduino project and an example Pebble app provided with library in the examples
 folder.
 * examples/PebbleApp/ - A Pebble app to use with the TeensyDemo examples
 * examples/TeensyDemo/ - A simple example sketch for the Teensy 2.0 or Teensy 3.1 board which will

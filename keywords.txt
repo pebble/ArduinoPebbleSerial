@@ -6,17 +6,20 @@
 # Datatypes (KEYWORD1)
 #######################################
 
-ArduinoPebbleSerial KEYWORD1  ArduinoPebbleSerial
+ArduinoPebbleSerial KEYWORD1
+Baud                KEYWORD1
+RequestType         KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
 #######################################
 
-begin         KEYWORD2
-feed          KEYWORD2
-write         KEYWORD2
-notify        KEYWORD2
-is_connected  KEYWORD2
+begin_hardware      KEYWORD2
+begin_software      KEYWORD2
+feed                KEYWORD2
+write               KEYWORD2
+notify              KEYWORD2
+is_connected        KEYWORD2
 
 #######################################
 # Constants (LITERAL1)
