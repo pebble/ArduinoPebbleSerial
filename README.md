@@ -15,15 +15,16 @@ a pull-up resistor and supports any AVR-based microcontroller.
 
 | Board Name      | Tested in Software Mode | Tested in Hardware Mode                       |
 | --------------- | ----------------------- | --------------------------------------------- |
-| Teensy 2.0      | yes                     | yes (RX/TX pins)                              |
-| Arduino Uno     | yes                     | no                                            |
+| Teensy 2.0      | yes                     | yes (RX/TX pins shorted together)             |
+| Teensy 3.0      | no                      | no, but supported                             |
+| Teensy 3.1      | no                      | yes (pins 0[RX1] and 1[TX1] shorted together) |
+| Arduino Uno     | yes                     | no, but supported                             |
 
 ## Examples ##
 
 There a few example Arduino projects and an example Pebble app provided with library in the examples
 folder.
-* examples/PebbleApp/ - A Pebble app to use with the TeensyDemo and XadowDemo examples
-* examples/TeensyDemo/ - A simple example sketch for the Teensy 2.0 board which will toggle the LED
-when data is received and send the uptime to the watch, among other things. This demo runs with the
-PebbleApp example and uses pin B1 (arduino pin 1) on the Teensy 2.0 board with the software serial
-mode of the library.
+* examples/PebbleApp/ - A Pebble app to use with the TeensyDemo examples
+* examples/TeensyDemo/ - A simple example sketch for the Teensy 2.0 or Teensy 3.1 board which will
+toggle the LED when data is received and send the uptime to the watch, among other things. This demo
+runs with the PebbleApp example.

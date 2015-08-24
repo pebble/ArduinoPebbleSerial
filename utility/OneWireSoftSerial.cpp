@@ -15,9 +15,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  */
-
 #include "OneWireSoftSerial.h"
 
+#ifdef __arm__
+// this library is not yet implemented for ARM microcontrollers
+void OneWireSoftSerial::begin(uint8_t pin, long speed) { }
+int OneWireSoftSerial::available(void) { return 0; }
+void OneWireSoftSerial::set_tx_enabled(bool enabled) { }
+void OneWireSoftSerial::write(uint8_t byte, bool is_break) { }
+int OneWireSoftSerial::read(void) { return -1; };
+
+#else
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <Arduino.h>
@@ -74,7 +82,7 @@ static inline void prv_set_tx_enabled(bool enabled) {
 
 // The receive routine called by the interrupt handler
 static inline void prv_recv(void) {
-#if GCC_VERSION < 40302
+#if !defined(__arm__) && GCC_VERSION < 40302
 // Work-around for avr-gcc 4.3.0 OSX version bug
 // Preserve the registers that the compiler misses
 // (courtesy of Arduino forum user *etracer*)
@@ -126,7 +134,7 @@ static inline void prv_recv(void) {
     prv_set_rx_int_msk(true);
   }
 
-#if GCC_VERSION < 40302
+#if !defined(__arm__) && GCC_VERSION < 40302
 // Work-around for avr-gcc 4.3.0 OSX version bug
 // Restore the registers that the compiler misses
   asm volatile(
@@ -314,3 +322,4 @@ void OneWireSoftSerial::write(uint8_t b, bool is_break /* = false */) {
   *reg |= reg_mask;
   TUNED_DELAY(s_tx_delay);
 }
+#endif // __arm__

@@ -15,7 +15,10 @@
 
 // The board-specific variables are defined below
 #if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega2560__)
+/* Arduino Mega, Teensy 2.0, etc */
 #define BOARD_SERIAL Serial1
+static inline void board_begin(void) {
+}
 static inline void board_set_tx_enabled(bool enabled) {
   if (enabled) {
     bitSet(UCSR1B, TXEN1);
@@ -36,7 +39,10 @@ static inline void board_set_even_parity(bool enabled) {
 }
 
 #elif defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__)
+/* Arduino Uno, etc */
 #define BOARD_SERIAL Serial
+static inline void board_begin(void) {
+}
 static inline void board_set_tx_enabled(bool enabled) {
   if (enabled) {
     bitSet(UCSR0B, TXEN0);
@@ -53,6 +59,23 @@ static inline void board_set_even_parity(bool enabled) {
     bitSet(UCSR0C, UPM01);
   } else {
     bitClear(UCSR0C, UPM01);
+  }
+}
+#elif defined(__MK20DX256__) || defined(__MK20DX128__)
+/* Teensy 3.0, Teensy 3.1, etc */
+#define BOARD_SERIAL Serial1
+static inline void board_begin(void) {
+  // configure TX as open-drain
+  CORE_PIN1_CONFIG |= PORT_PCR_ODE;
+}
+static inline void board_set_tx_enabled(bool enabled) {
+  // the TX and RX are tied together and we'll just drop any loopback frames
+}
+static inline void board_set_even_parity(bool enabled) {
+  if (enabled) {
+    serial_format(SERIAL_8E1);
+  } else {
+    serial_format(SERIAL_8N1);
   }
 }
 

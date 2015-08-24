@@ -1,8 +1,6 @@
 #include <ArduinoPebbleSerial.h>
 
 #define ARRAY_LENGTH(arr) (sizeof(arr)/sizeof(arr[0]))
-#define PEBBLE_PIN        1
-STATIC_ASSERT_VALID_ONE_WIRE_SOFT_SERIAL_PIN(PEBBLE_PIN);
 static const uint16_t supported_services[] = {0x0000, 0x1001};
 #define RECV_BUFFER_SIZE  200
 static uint8_t pebble_buffer[RECV_BUFFER_SIZE];
@@ -10,12 +8,22 @@ static uint8_t pebble_buffer[RECV_BUFFER_SIZE];
 void setup() {
   // General init
   Serial.begin(115200);
-  pinMode(PIN_D6, OUTPUT);
-  digitalWrite(PIN_D6, LOW);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
 
-  // Setup the Pebble smartstrap connection using one wire software serial
+#if defined(__MK20DX256__) || defined(__MK20DX128__)
+  // Teensy 3.0/3.1 uses hardware serial mode (pins 0/1) with RX/TX shorted together
+  ArduinoPebbleSerial::begin_hardware(pebble_buffer, RECV_BUFFER_SIZE, Baud57600,
+                                      supported_services, ARRAY_LENGTH(supported_services));
+#elif defined(__AVR_ATmega32U4__)
+  // Teensy 2.0 uses the one-wire software serial mode (pin 2);
+  const uint8_t PEBBLE_PIN = 1;
+  STATIC_ASSERT_VALID_ONE_WIRE_SOFT_SERIAL_PIN(PEBBLE_PIN);
   ArduinoPebbleSerial::begin_software(PEBBLE_PIN, pebble_buffer, RECV_BUFFER_SIZE, Baud57600,
                                       supported_services, ARRAY_LENGTH(supported_services));
+#else
+#error "This example will only work for the Teensy 2.0, 3.0, or 3.1 boards"
+#endif
 }
 
 void loop() {
@@ -29,7 +37,7 @@ void loop() {
       // we have a raw data frame to process
       static bool led_status = false;
       led_status = !led_status;
-      digitalWrite(PIN_D6, led_status);
+      digitalWrite(LED_BUILTIN, led_status);
       if (type == RequestTypeRead) {
         // send a response to the Pebble - reuse the same buffer for the response
         uint32_t current_time = millis();

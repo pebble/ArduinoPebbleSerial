@@ -23,6 +23,7 @@ static void prv_cmd_cb(SmartstrapCmd cmd, uint32_t arg) {
         arg++;
       }
       BOARD_SERIAL.begin(arg);
+      board_begin();
     } else {
       OneWireSoftSerial::begin(s_pin, arg);
     }
