@@ -102,7 +102,9 @@ static uint8_t prv_read_byte(void) {
 bool ArduinoPebbleSerial::feed(uint16_t *service_id, uint16_t *attribute_id, size_t *length,
                                RequestType *type) {
   SmartstrapRequestType request_type;
+  bool did_feed = false;
   while (prv_available_bytes()) {
+    did_feed = true;
     if (pebble_handle_byte(prv_read_byte(), service_id, attribute_id, length, &request_type,
                            millis())) {
       // we have a full frame
@@ -122,6 +124,11 @@ bool ArduinoPebbleSerial::feed(uint16_t *service_id, uint16_t *attribute_id, siz
       }
       return true;
     }
+  }
+
+  if (!did_feed) {
+    // allow the pebble code to dicsonnect if we haven't gotten any messages recently
+    pebble_is_connected(millis());
   }
   return false;
 }

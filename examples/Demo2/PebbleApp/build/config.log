@@ -1,0 +1,21 @@
+# project  configured on Tue Aug 25 21:29:26 2015 by
+# waf 1.7.11 (abi 98, python 20709f0 on darwin)
+# using /Users/briangomberg/pebble-dev/PebbleSDK-3.0-dp9/Pebble/waf configure build
+#
+----------------------------------------
+Setting top to
+/Users/briangomberg/pebble-dev/smartstrap/ArduinoPebbleSerial/examples/Demo2/PebbleApp
+----------------------------------------
+Setting out to
+/Users/briangomberg/pebble-dev/smartstrap/ArduinoPebbleSerial/examples/Demo2/PebbleApp/build
+----------------------------------------
+Found Pebble SDK for basalt in:
+/Users/briangomberg/pebble-dev/PebbleSDK-3.0-dp9/Pebble/basalt
+----------------------------------------
+Checking for program gcc,cc
+arm-none-eabi-gcc
+find program=['gcc', 'cc'] paths='' var='CC' -> 'arm-none-eabi-gcc'
+----------------------------------------
+Checking for program ar
+arm-none-eabi-ar
+find program=['ar'] paths='' var='AR' -> 'arm-none-eabi-ar'
