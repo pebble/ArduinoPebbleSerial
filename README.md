@@ -7,11 +7,11 @@ information, see the
 ## Installation ##
 
 Below are instructions for installing this library with Arduino 1.6.x:
-1) Download this repository as a .zip by clicking on the "Download ZIP" button on GitHub.
-2) In Arduino, create a new project and go to "Sketch" -> "Include Library" -> "Add .ZIP Library..."
-3) Select the .zip you just downloaded.
-4) Arduino will automatically import the library and place the proper #include at the top.
-5) In the future, you can skip step 1 and simply select the library within the "Sketch" ->
+1. Download this repository as a .zip by clicking on the "Download ZIP" button on GitHub.
+2. In Arduino, create a new project and go to "Sketch" -> "Include Library" -> "Add .ZIP Library..."
+3. Select the .zip you just downloaded.
+4. Arduino will automatically import the library and place the proper #include at the top.
+5. In the future, you can skip step 1 and simply select the library within the "Sketch" ->
 "Include Library" list for step 2.
 
 ## Hardware Configuration
