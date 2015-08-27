@@ -44,6 +44,15 @@ static void prv_handle_led_request(RequestType type, size_t length) {
 }
 
 void loop() {
+  if (ArduinoPebbleSerial::is_connected()) {
+    static uint32_t last_notify_time = 0;
+    const uint32_t current_time = millis() / 1000;
+    if (current_time > last_notify_time) {
+      ArduinoPebbleSerial::notify(SERVICE_ID, UPTIME_ATTRIBUTE_ID);
+      last_notify_time = current_time;
+    }
+  }
+
   uint16_t service_id;
   uint16_t attribute_id;
   size_t length;
@@ -61,15 +70,6 @@ void loop() {
         default:
           break;
       }
-    }
-  }
-
-  if (ArduinoPebbleSerial::is_connected()) {
-    static uint32_t last_notify_time = 0;
-    const uint32_t current_time = millis() / 1000;
-    if (current_time > last_notify_time) {
-      ArduinoPebbleSerial::notify(SERVICE_ID, UPTIME_ATTRIBUTE_ID);
-      last_notify_time = current_time;
     }
   }
 }

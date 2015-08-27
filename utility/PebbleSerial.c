@@ -323,7 +323,7 @@ static void prv_frame_validate(void) {
 
 bool pebble_handle_byte(uint8_t data, uint16_t *service_id, uint16_t *attribute_id, size_t *length,
                         SmartstrapRequestType *type, uint32_t time) {
-  if (!s_frame.read_ready || s_frame.should_drop) {
+  if (!s_frame.read_ready) {
     // we shouldn't be reading new data
     return false;
   }

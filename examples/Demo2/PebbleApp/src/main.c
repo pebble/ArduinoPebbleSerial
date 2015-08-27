@@ -29,7 +29,7 @@ static void prv_availability_changed(SmartstrapServiceId service_id, bool availa
 }
 
 static void prv_did_read(SmartstrapAttribute *attr, SmartstrapResult result,
-                                const uint8_t *data, size_t length) {
+                         const uint8_t *data, size_t length) {
   if (attr != uptime_attribute) {
     return;
   }
@@ -67,7 +67,7 @@ static void prv_set_led_attribute(bool on) {
 
   buffer[0] = on;
 
-  result = smartstrap_attribute_end_write(led_attribute, LED_ATTRIBUTE_LENGTH, false);
+  result = smartstrap_attribute_end_write(led_attribute, 1, false);
   if (result != SmartstrapResultOk) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "Begin write failed with error %d", result);
     return;
