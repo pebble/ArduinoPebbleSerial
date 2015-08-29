@@ -69,7 +69,7 @@ static void prv_set_led_attribute(bool on) {
 
   result = smartstrap_attribute_end_write(led_attribute, 1, false);
   if (result != SmartstrapResultOk) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Begin write failed with error %d", result);
+    APP_LOG(APP_LOG_LEVEL_ERROR, "End write failed with error %d", result);
     return;
   }
 }
