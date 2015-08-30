@@ -1,2 +1,12 @@
 *.swp
 *.swo
+
+# Ignore build generated files
+examples/Demo1/PebbleApp/build
+examples/Demo2/PebbleApp/build
+
+# Ignore Screenshots
+pebble-screenshot_*
+
+# Ignore lock files
+.lock-*
