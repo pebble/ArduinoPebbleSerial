@@ -10,7 +10,7 @@ static const uint16_t SERVICES[] = {SERVICE_ID};
 static const uint8_t NUM_SERVICES = 1;
 
 static const uint8_t PEBBLE_DATA_PIN = 1;
-static uint8_t buffer[20];
+static uint8_t buffer[GET_PAYLOAD_BUFFER_SIZE(4)];
 
 
 void setup() {

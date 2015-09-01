@@ -8,6 +8,9 @@
 
 #include <Arduino.h>
 #include "utility/OneWireSoftSerial.h"
+extern "C" {
+#include "utility/PebbleSerial.h"
+};
 
 typedef enum {
   Baud9600,

@@ -4,9 +4,6 @@
 
 #include "ArduinoPebbleSerial.h"
 #include "utility/board.h"
-extern "C" {
-#include "utility/PebbleSerial.h"
-};
 
 static bool s_is_hardware;
 static uint8_t *s_buffer;

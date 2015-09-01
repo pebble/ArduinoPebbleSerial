@@ -1,9 +1,8 @@
 #include <ArduinoPebbleSerial.h>
 
-#define ARRAY_LENGTH(arr) (sizeof(arr)/sizeof(arr[0]))
-static const uint16_t supported_services[] = {0x0000, 0x1001};
-#define RECV_BUFFER_SIZE  200
-static uint8_t pebble_buffer[RECV_BUFFER_SIZE];
+static const uint16_t SUPPORTED_SERVICES[] = {0x0000, 0x1001};
+static const uint8_t NUM_SERVICES = 2;
+static uint8_t pebble_buffer[GET_PAYLOAD_BUFFER_SIZE(200)];
 
 void setup() {
   // General init
@@ -13,14 +12,14 @@ void setup() {
 
 #if defined(__MK20DX256__) || defined(__MK20DX128__)
   // Teensy 3.0/3.1 uses hardware serial mode (pins 0/1) with RX/TX shorted together
-  ArduinoPebbleSerial::begin_hardware(pebble_buffer, RECV_BUFFER_SIZE, Baud57600,
-                                      supported_services, ARRAY_LENGTH(supported_services));
+  ArduinoPebbleSerial::begin_hardware(pebble_buffer, sizeof(pebble_buffer), Baud57600,
+                                      SUPPORTED_SERVICES, NUM_SERVICES);
 #elif defined(__AVR_ATmega32U4__)
   // Teensy 2.0 uses the one-wire software serial mode (pin 2);
   const uint8_t PEBBLE_PIN = 1;
   STATIC_ASSERT_VALID_ONE_WIRE_SOFT_SERIAL_PIN(PEBBLE_PIN);
-  ArduinoPebbleSerial::begin_software(PEBBLE_PIN, pebble_buffer, RECV_BUFFER_SIZE, Baud57600,
-                                      supported_services, ARRAY_LENGTH(supported_services));
+  ArduinoPebbleSerial::begin_software(PEBBLE_PIN, pebble_buffer, sizeof(pebble_buffer), Baud57600,
+                                      SUPPORTED_SERVICES, NUM_SERVICES);
 #else
 #error "This example will only work for the Teensy 2.0, 3.0, or 3.1 boards"
 #endif

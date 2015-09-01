@@ -5,7 +5,12 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define PEBBLE_MAX_PAYLOAD      80
+#define PEBBLE_MIN_PAYLOAD      (20 + PEBBLE_PAYLOAD_OVERHEAD)
+#define PEBBLE_PAYLOAD_OVERHEAD 9
+
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#define GET_PAYLOAD_BUFFER_SIZE(max_data_length) \
+  MAX(max_data_length + PEBBLE_PAYLOAD_OVERHEAD, PEBBLE_MIN_PAYLOAD)
 
 typedef enum {
   SmartstrapCmdSetBaudRate,
