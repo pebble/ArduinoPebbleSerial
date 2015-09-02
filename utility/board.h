@@ -78,7 +78,14 @@ static inline void board_set_even_parity(bool enabled) {
     serial_format(SERIAL_8N1);
   }
 }
-
+#elif defined(__AVR_ATtiny85__)
+#define BOARD_SERIAL Serial
+static inline void board_begin(void) {
+}
+static inline void board_set_tx_enabled(bool enabled) {
+}
+static inline void board_set_even_parity(bool enabled) {
+}
 #else
 #error "Board not supported!"
 #endif
