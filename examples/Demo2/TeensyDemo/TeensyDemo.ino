@@ -15,11 +15,19 @@ static uint8_t buffer[GET_PAYLOAD_BUFFER_SIZE(4)];
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
+#if defined(__MK20DX256__) || defined(__MK20DX128__)
+  // Teensy 3.0/3.1 uses hardware serial mode (pins 0/1) with RX/TX shorted together
+  ArduinoPebbleSerial::begin_hardware(buffer, sizeof(buffer), Baud57600, SERVICES, NUM_SERVICES);
+#elif defined(__AVR_ATmega32U4__)
+  // Teensy 2.0 uses the one-wire software serial mode
   ArduinoPebbleSerial::begin_software(PEBBLE_DATA_PIN, buffer, sizeof(buffer), Baud57600, SERVICES,
                                       NUM_SERVICES);
+#else
+#error "This example will only work for the Teensy 2.0, 3.0, or 3.1 boards"
+#endif
 }
 
-static void prv_handle_uptime_request(RequestType type, size_t length) {
+void handle_uptime_request(RequestType type, size_t length) {
   if (type != RequestTypeRead) {
     // unexpected request type
     return;
@@ -29,7 +37,7 @@ static void prv_handle_uptime_request(RequestType type, size_t length) {
   ArduinoPebbleSerial::write(true, (uint8_t *)&uptime, sizeof(uptime));
 }
 
-static void prv_handle_led_request(RequestType type, size_t length) {
+void handle_led_request(RequestType type, size_t length) {
   if (type != RequestTypeWrite) {
     // unexpected request type
     return;
@@ -62,10 +70,10 @@ void loop() {
     if (service_id == SERVICE_ID) {
       switch (attribute_id) {
         case UPTIME_ATTRIBUTE_ID:
-          prv_handle_uptime_request(type, length);
+          handle_uptime_request(type, length);
           break;
         case LED_ATTRIBUTE_ID:
-          prv_handle_led_request(type, length);
+          handle_led_request(type, length);
           break;
         default:
           break;
