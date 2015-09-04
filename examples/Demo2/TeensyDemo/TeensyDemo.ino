@@ -9,14 +9,28 @@ static const size_t UPTIME_ATTRIBUTE_LENGTH = 4;
 static const uint16_t SERVICES[] = {SERVICE_ID};
 static const uint8_t NUM_SERVICES = 1;
 
-static const uint8_t PEBBLE_DATA_PIN = 1;
 static uint8_t buffer[GET_PAYLOAD_BUFFER_SIZE(4)];
 
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
-  ArduinoPebbleSerial::begin_software(PEBBLE_DATA_PIN, buffer, sizeof(buffer), Baud57600, SERVICES,
-                                      NUM_SERVICES);
+  
+#if defined(__MK20DX256__) || defined(__MK20DX128__) || defined(__MKL26Z64__)
+  // Teensy 3.0/3.1/LC uses hardware serial mode (pins 0/1) with RX/TX shorted together
+  ArduinoPebbleSerial::begin_hardware(buffer, sizeof(buffer), Baud57600,
+                                      SERVICES, NUM_SERVICES);
+#elif defined(__AVR_ATmega32U4__)
+  // Teensy 2.0 uses the one-wire software serial mode (pin 2);
+  const uint8_t PEBBLE_DATA_PIN = 1;
+  STATIC_ASSERT_VALID_ONE_WIRE_SOFT_SERIAL_PIN(PEBBLE_DATA_PIN);
+  ArduinoPebbleSerial::begin_software(PEBBLE_PIN, buffer, sizeof(buffer), Baud57600,
+                                      SERVICES, NUM_SERVICES);
+#else
+// TODO: add Uno check/pin from https://github.com/ishotjr/ArduinoPebbleSerial/tree/uno-debug
+#error "This example will only work for the Teensy 2.0, 3.0, 3.1, and LC boards"
+#endif
+
+
 }
 
 static void prv_handle_uptime_request(RequestType type, size_t length) {
