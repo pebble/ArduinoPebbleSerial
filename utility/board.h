@@ -61,8 +61,8 @@ static inline void board_set_even_parity(bool enabled) {
     bitClear(UCSR0C, UPM01);
   }
 }
-#elif defined(__MK20DX256__) || defined(__MK20DX128__)
-/* Teensy 3.0, Teensy 3.1, etc */
+#elif defined(__MK20DX256__) || defined(__MK20DX128__) || defined(__MKL26Z64__)
+/* Teensy 3.0, Teensy 3.1, Teensy LC, etc */
 #define BOARD_SERIAL Serial1
 static inline void board_begin(void) {
   // configure TX as open-drain
