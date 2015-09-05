@@ -24,7 +24,7 @@ static void prv_availability_changed(SmartstrapServiceId service_id, bool availa
     text_layer_set_text(status_text_layer, "Connected!");
   } else {
     text_layer_set_background_color(status_text_layer, GColorRed);
-    text_layer_set_text(status_text_layer, "Disonnected!");
+    text_layer_set_text(status_text_layer, "Disconnected!");
   }
 }
 
