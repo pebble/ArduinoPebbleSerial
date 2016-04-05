@@ -228,7 +228,7 @@ static void prv_handle_link_control(uint8_t *buffer) {
     prv_write_internal(SmartstrapProfileLinkControl, buffer, 2, (uint8_t *)profiles,
                        num_profiles * sizeof(uint16_t), false);
   } else if (type == LinkControlTypeBaud) {
-    buffer[2] = 0x05;
+    buffer[2] = s_target_baud;
     prv_write_internal(SmartstrapProfileLinkControl, buffer, 3, NULL, 0, false);
     prv_set_baud(s_target_baud);
   }
